@@ -1,17 +1,5 @@
 <?php
 
-include __DIR__ . '/src/Mindy/Exception/Exception.php';
-include __DIR__ . '/src/Mindy/Exception/InvalidCallException.php';
-include __DIR__ . '/src/Mindy/Exception/InvalidParamException.php';
-include __DIR__ . '/src/Mindy/Exception/NotSupportedException.php';
-include __DIR__ . '/src/Mindy/Exception/UnknownMethodException.php';
-include __DIR__ . '/src/Mindy/Exception/UnknownPropertyException.php';
-
-include __DIR__ . '/src/Mindy/Helper/Creator.php';
-
-include __DIR__ . '/src/Mindy/Core/Interfaces/Arrayable.php';
-include __DIR__ . '/src/Mindy/Core/Object.php';
-
 include __DIR__ . '/src/Mindy/Query/Exception.php';
 
 include __DIR__ . '/src/Mindy/Query/Connection.php';
