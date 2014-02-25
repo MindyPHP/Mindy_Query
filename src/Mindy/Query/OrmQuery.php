@@ -45,9 +45,9 @@ namespace Mindy\Query;
  * @author Carsten Brandt <mail@cebe.cc>
  * @since 2.0
  */
-class ActiveQuery extends Query implements ActiveQueryInterface
+class OrmQuery extends Query implements ActiveQueryInterface
 {
-    use ActiveQueryTrait;
+    use OrmQueryTrait;
 
     /**
      * @var string the SQL statement to be executed for retrieving AR records.

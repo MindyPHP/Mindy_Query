@@ -15,7 +15,7 @@ use Mindy\Exception\InvalidCallException;
  * @author Carsten Brandt <mail@cebe.cc>
  * @since 2.0
  */
-trait ActiveQueryTrait
+trait OrmQueryTrait
 {
     /**
      * @var string the name of the ActiveRecord class.
