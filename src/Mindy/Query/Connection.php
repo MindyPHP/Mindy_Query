@@ -9,6 +9,7 @@ namespace Mindy\Query;
 
 use InvalidArgumentException;
 use Mindy\Core\Object;
+use Mindy\Exception\NotSupportedException;
 use Mindy\Helper\Creator;
 use PDO;
 
@@ -349,7 +350,7 @@ class Connection extends Object
             if (($pos = strpos($this->dsn, ':')) !== false) {
                 $driver = strtolower(substr($this->dsn, 0, $pos));
                 if ($driver === 'mssql' || $driver === 'dblib' || $driver === 'sqlsrv') {
-                    $pdoClass = 'Mindy\Query\mssql\PDO';
+                    $pdoClass = 'Mindy\Query\Mssql\PDO';
                 }
             }
         }
