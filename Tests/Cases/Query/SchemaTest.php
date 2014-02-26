@@ -48,7 +48,9 @@ class SchemaTest extends DatabaseTestCase
         $schema = $this->getConnection()->schema;
 
         $schema->db->enableSchemaCache = true;
-        $schema->db->schemaCache = new Mindy\Cache\FileCache();
+        $schema->db->schemaCache = new Mindy\Cache\FileCache([
+            'cachePath' => dirname(__FILE__) . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'cache'
+        ]);
         $noCacheTable = $schema->getTableSchema('tbl_type', true);
         $cachedTable = $schema->getTableSchema('tbl_type', true);
         $this->assertEquals($noCacheTable, $cachedTable);

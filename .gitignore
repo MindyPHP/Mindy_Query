@@ -3,4 +3,7 @@
 
 build
 composer.lock
+vendor
+phpunit.phar
+composer.phar
 Tests/config_local.php
