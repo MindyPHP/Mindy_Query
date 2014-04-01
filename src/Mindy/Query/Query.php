@@ -197,7 +197,7 @@ class Query extends Object implements QueryInterface
      */
     public function count($q = '*', $db = null)
     {
-        return $this->queryScalar("COUNT($q)", $db);
+        return intval($this->queryScalar("COUNT($q)", $db));
     }
 
     /**
