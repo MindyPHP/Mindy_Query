@@ -746,4 +746,12 @@ class Query extends Object implements QueryInterface
     {
         return $this->createCommand($db)->getRawSql();
     }
+
+    public function updateAll($tableName, array $attributes, $db = null)
+    {
+        $command = $this->createCommand($db);
+        $command->update($tableName, $attributes, $this->where, $this->params);
+
+        return $command->execute();
+    }
 }
