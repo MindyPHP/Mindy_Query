@@ -5,7 +5,7 @@
  * @license http://www.yiiframework.com/license/
  */
 
-namespace Mindy\Query\sqlite;
+namespace Mindy\Query\Sqlite;
 
 use Mindy\Exception\InvalidParamException;
 use Mindy\Exception\NotSupportedException;

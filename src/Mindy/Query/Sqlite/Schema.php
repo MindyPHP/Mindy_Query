@@ -5,7 +5,7 @@
  * @license http://www.yiiframework.com/license/
  */
 
-namespace Mindy\Query\sqlite;
+namespace Mindy\Query\Sqlite;
 
 use Mindy\Query\ColumnSchema;
 use Mindy\Query\TableSchema;
