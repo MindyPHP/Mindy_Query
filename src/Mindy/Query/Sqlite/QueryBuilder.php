@@ -19,6 +19,8 @@ use Mindy\Query\Exception;
  */
 class QueryBuilder extends \Mindy\Query\QueryBuilder
 {
+    use Lookup;
+
     /**
      * @var array mapping from abstract column types (keys) to physical column types (values).
      */

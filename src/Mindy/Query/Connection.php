@@ -351,6 +351,8 @@ class Connection extends Object
                 $driver = strtolower(substr($this->dsn, 0, $pos));
                 if ($driver === 'mssql' || $driver === 'dblib' || $driver === 'sqlsrv') {
                     $pdoClass = 'Mindy\Query\Mssql\PDO';
+                } elseif ($driver == 'sqlite' || $driver == 'sqlite2') {
+                    $pdoClass = 'Mindy\Query\Sqlite\PDO';
                 }
             }
         }

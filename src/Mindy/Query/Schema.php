@@ -9,6 +9,7 @@ namespace Mindy\Query;
 
 use Mindy\Core\Object;
 use Mindy\Exception\InvalidCallException;
+use Mindy\Exception\NotSupportedException;
 
 /**
  * Schema is the base class for concrete DBMS-specific schema classes.
