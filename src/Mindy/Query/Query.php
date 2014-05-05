@@ -694,6 +694,9 @@ class Query extends Object implements QueryInterface
         return $this;
     }
 
+    /**
+     * @return \Mindy\Query\Connection
+     */
     public function getDb()
     {
         $className = $this->modelClass;

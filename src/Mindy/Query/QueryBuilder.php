@@ -44,6 +44,12 @@ class QueryBuilder extends Object
     public $typeMap = [];
 
     /**
+     * Counter of params
+     * @var int
+     */
+    private $_paramsCount = 0;
+
+    /**
      * Constructor.
      * @param Connection $connection the database connection.
      * @param array $config name-value pairs that will be used to initialize the object properties
@@ -1071,5 +1077,18 @@ class QueryBuilder extends Object
         }
 
         return implode($andor, $parts);
+    }
+
+    /**
+     * Makes key for param
+     * @param $fieldName
+     * @return string
+     */
+    public function makeParamKey($fieldName)
+    {
+        $this->_paramsCount += 1;
+        $fieldName = str_replace(['`', '{{', '}}', '%', '[[', ']]'], '', $fieldName);
+        $fieldName = str_replace('.', '_', $fieldName);
+        return $fieldName . $this->_paramsCount;
     }
 }
