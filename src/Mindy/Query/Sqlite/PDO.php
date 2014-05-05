@@ -23,28 +23,13 @@ class PDO extends \PDO
     {
         parent::__construct($dsn, $username, $passwd, $options);
 
-        $regexpCallback = function($pattern, $value) {
-            if(preg_match('/'.$pattern.'/', $value)) {
-                return true;
-            }
-            return false;
-        };
+        $regexCreated = $this->sqliteCreateFunction('regexp', function($pattern, $value) {
+            return preg_match($pattern, $value);
+        }, 2);
 
-        if($this->sqliteCreateFunction('regexp', $regexpCallback, 2) === false) {
+        if($regexCreated === false) {
             // TODO logging "Failed creating function regexp"
             throw new Exception("Failed creating function regexp");
-        }
-
-        $iregexpCallback = function($pattern, $value) {
-            if(preg_match('/'.$pattern.'/i', $value)) {
-                return true;
-            }
-            return false;
-        };
-
-        if($this->sqliteCreateFunction('iregexp', $iregexpCallback, 2) === false) {
-            // TODO logging "Failed creating function iregexp"
-            throw new Exception("Failed creating function iregexp");
         }
     }
 }

@@ -188,7 +188,7 @@ trait Lookup
         }
 
         $paramName = $this->makeParamKey($field);
-        return [['and', "IREGEXP(:" . $paramName.", ".$this->db->quoteColumnName($field) . ")"], [':' . $paramName => $value]];
+        return [['and', $this->db->quoteColumnName($field) . " REGEXP :" . $paramName], [':' . $paramName => "/" . $value . "/i"]];
     }
 
     /**
@@ -205,7 +205,7 @@ trait Lookup
         }
 
         $paramName = $this->makeParamKey($field);
-        return [['and', $this->db->quoteColumnName($field) . " REGEXP :" . $paramName], [':' . $paramName => $value]];
+        return [['and', $this->db->quoteColumnName($field) . " REGEXP :" . $paramName], [':' . $paramName => "/" . $value . "/"]];
     }
 
     /**
