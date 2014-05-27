@@ -346,7 +346,7 @@ class Connection extends Object
     {
         $pdoClass = $this->pdoClass;
         if ($pdoClass === null) {
-            $pdoClass = 'PDO';
+            $pdoClass = 'Mindy\Query\PDO';
             if (($pos = strpos($this->dsn, ':')) !== false) {
                 $driver = strtolower(substr($this->dsn, 0, $pos));
                 if ($driver === 'mssql' || $driver === 'dblib' || $driver === 'sqlsrv') {

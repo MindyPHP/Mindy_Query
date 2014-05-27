@@ -16,6 +16,8 @@ namespace Mindy\Query\Mysql;
 
 trait Lookup
 {
+    public $dateTimeFormat = "Y-m-d H:i:s";
+
     /**
      * @param $field
      * @param $value
@@ -309,5 +311,19 @@ trait Lookup
 
         $paramName = $this->makeParamKey($field);
         return [['and', "EXTRACT(" . $extract . " FROM " . $this->db->quoteColumnName($field) . ") = :" . $paramName], [':' . $paramName => $value]];
+    }
+
+
+    public function convertToDateTime($value = null)
+    {
+        /* @var $this \Mindy\Query\Mysql\QueryBuilder */
+        if($value === null) {
+            $value = date($this->dateTimeFormat);
+        } elseif(is_numeric($value)) {
+            $value = date($this->dateTimeFormat, $value);
+        } elseif(is_string($value)) {
+            $value = date($this->dateTimeFormat, strtotime($value));
+        }
+        return $value;
     }
 }
