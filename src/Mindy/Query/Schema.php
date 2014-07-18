@@ -7,9 +7,10 @@
 
 namespace Mindy\Query;
 
-use Mindy\Core\Object;
 use Mindy\Exception\InvalidCallException;
 use Mindy\Exception\NotSupportedException;
+use Mindy\Helper\Traits\Accessors;
+use Mindy\Helper\Traits\Configurator;
 
 /**
  * Schema is the base class for concrete DBMS-specific schema classes.
@@ -26,8 +27,10 @@ use Mindy\Exception\NotSupportedException;
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
  */
-abstract class Schema extends Object
+abstract class Schema
 {
+    use Accessors, Configurator;
+
     /**
      * The followings are the supported abstract column data types.
      */

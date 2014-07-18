@@ -8,8 +8,9 @@
 namespace Mindy\Query;
 
 // TODO use Mindy\Cache\Cache;
-use Mindy\Core\Object;
 use Mindy\Exception\NotSupportedException;
+use Mindy\Helper\Traits\Accessors;
+use Mindy\Helper\Traits\Configurator;
 
 /**
  * Command represents a SQL statement to be executed against a database.
@@ -51,8 +52,10 @@ use Mindy\Exception\NotSupportedException;
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
  */
-class Command extends Object
+class Command
 {
+    use Accessors, Configurator;
+
     /**
      * @var Connection the DB connection that this command is associated with
      */

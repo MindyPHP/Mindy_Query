@@ -8,9 +8,10 @@
 namespace Mindy\Query;
 
 use InvalidArgumentException;
-use Mindy\Core\Object;
 use Mindy\Exception\NotSupportedException;
 use Mindy\Helper\Creator;
+use Mindy\Helper\Traits\Accessors;
+use Mindy\Helper\Traits\Configurator;
 use PDO;
 
 
@@ -103,8 +104,10 @@ use PDO;
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
  */
-class Connection extends Object
+class Connection
 {
+    use Accessors, Configurator;
+
     /**
      * @event Event an event that is triggered after a DB connection is established
      */

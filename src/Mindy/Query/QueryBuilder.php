@@ -7,9 +7,10 @@
 
 namespace Mindy\Query;
 
-use Mindy\Core\Object;
 use Mindy\Exception\InvalidParamException;
 use Mindy\Exception\NotSupportedException;
+use Mindy\Helper\Traits\Accessors;
+use Mindy\Helper\Traits\Configurator;
 
 /**
  * QueryBuilder builds a SELECT SQL statement based on the specification given as a [[Query]] object.
@@ -20,8 +21,10 @@ use Mindy\Exception\NotSupportedException;
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
  */
-class QueryBuilder extends Object
+class QueryBuilder
 {
+    use Accessors, Configurator;
+
     /**
      * The prefix for automatically generated query binding parameters.
      */
@@ -57,7 +60,8 @@ class QueryBuilder extends Object
     public function __construct($connection, $config = [])
     {
         $this->db = $connection;
-        parent::__construct($config);
+        $this->configure($config);
+        $this->init();
     }
 
     /**

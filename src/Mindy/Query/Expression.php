@@ -6,7 +6,8 @@
  */
 
 namespace Mindy\Query;
-use Mindy\Core\Object;
+use Mindy\Helper\Traits\Accessors;
+use Mindy\Helper\Traits\Configurator;
 
 /**
  * Expression represents a DB expression that does not need escaping or quoting.
@@ -24,8 +25,10 @@ use Mindy\Core\Object;
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
  */
-class Expression extends Object
+class Expression
 {
+    use Accessors, Configurator;
+
     /**
      * @var string the DB expression
      */

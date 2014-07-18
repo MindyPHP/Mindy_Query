@@ -7,7 +7,8 @@
 
 namespace Mindy\Query;
 
-use Mindy\Core\Object;
+use Mindy\Helper\Traits\Accessors;
+use Mindy\Helper\Traits\Configurator;
 
 /**
  * Query represents a SELECT SQL statement in a way that is independent of DBMS.
@@ -38,9 +39,9 @@ use Mindy\Core\Object;
  * @author Carsten Brandt <mail@cebe.cc>
  * @since 2.0
  */
-class Query extends Object implements QueryInterface
+class Query implements QueryInterface
 {
-    use QueryTrait;
+    use Accessors, Configurator, QueryTrait;
 
     public $db;
 

@@ -7,8 +7,9 @@
 
 namespace Mindy\Query;
 
-use Mindy\Core\Object;
 use Mindy\Exception\InvalidParamException;
+use Mindy\Helper\Traits\Accessors;
+use Mindy\Helper\Traits\Configurator;
 
 /**
  * TableSchema represents the metadata of a database table.
@@ -18,8 +19,10 @@ use Mindy\Exception\InvalidParamException;
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
  */
-class TableSchema extends Object
+class TableSchema
 {
+    use Accessors, Configurator;
+
     /**
      * @var string name of the schema that this table belongs to.
      */

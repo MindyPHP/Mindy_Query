@@ -6,7 +6,8 @@
  */
 
 namespace Mindy\Query;
-use Mindy\Core\Object;
+use Mindy\Helper\Traits\Accessors;
+use Mindy\Helper\Traits\Configurator;
 
 
 /**
@@ -15,8 +16,10 @@ use Mindy\Core\Object;
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
  */
-class ColumnSchema extends Object
+class ColumnSchema
 {
+    use Accessors, Configurator;
+
     /**
      * @var string name of this column (without quotes).
      */
