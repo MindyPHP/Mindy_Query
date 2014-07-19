@@ -12,7 +12,6 @@ include __DIR__ . '/src/Mindy/Query/QueryInterface.php';
 include __DIR__ . '/src/Mindy/Query/QueryTrait.php';
 include __DIR__ . '/src/Mindy/Query/Query.php';
 include __DIR__ . '/src/Mindy/Query/QueryBuilder.php';
-include __DIR__ . '/src/Mindy/Query/DataReader.php';
 
 include __DIR__ . '/src/Mindy/Query/Sqlite/Schema.php';
 include __DIR__ . '/src/Mindy/Query/Sqlite/QueryBuilder.php';
