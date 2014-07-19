@@ -700,8 +700,12 @@ class Query implements QueryInterface
      */
     public function getDb()
     {
-        $className = $this->modelClass;
-        return $className::getConnection();
+        if($this->db === null) {
+            $className = $this->modelClass;
+            return $className::getConnection();
+        } else {
+            return $this->db;
+        }
     }
 
     public function countSql($q = '*', $db = null)
