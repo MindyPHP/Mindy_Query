@@ -114,22 +114,10 @@ class QueryTest extends DatabaseTestCase
 
     public function testOne()
     {
-        $db = $this->getConnection();
-
-        $query = new Query([
-            'databases' => [
-                'default' => $db
-            ]
-        ]);
-        $result = $query->from('tbl_customer')->where(['status' => 2])->one($db);
+        $result = (new Query())->using('sqlite')->from('tbl_customer')->where(['status' => 2])->one();
         $this->assertEquals('user3', $result['name']);
 
-        $query = new Query([
-            'databases' => [
-                'default' => $db
-            ]
-        ]);
-        $result =$query->from('tbl_customer')->where(['status' => 3])->one($db);
+        $result = (new Query())->using('sqlite')->from('tbl_customer')->where(['status' => 3])->one();
         $this->assertFalse($result);
     }
 }

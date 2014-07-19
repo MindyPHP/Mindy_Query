@@ -254,6 +254,10 @@ class Connection
      */
     public $pdoClass;
     /**
+     * @var string
+     */
+    public $fixture = '';
+    /**
      * @var \Mindy\Query\Transaction the currently active transaction
      */
     private $_transaction;
@@ -379,7 +383,20 @@ class Connection
         if ($this->charset !== null && in_array($this->getDriverName(), ['pgsql', 'mysql', 'mysqli', 'cubrid'])) {
             $this->pdo->exec('SET NAMES ' . $this->pdo->quote($this->charset));
         }
+        if(!empty($this->fixture)) {
+            $this->loadFixtures($this->fixture);
+        }
         // TODO $this->trigger(self::EVENT_AFTER_OPEN);
+    }
+
+    public function loadFixtures($fixture)
+    {
+        $lines = explode(';', file_get_contents($fixture));
+        foreach ($lines as $line) {
+            if (trim($line) !== '') {
+                $this->pdo->exec($line);
+            }
+        }
     }
 
     /**

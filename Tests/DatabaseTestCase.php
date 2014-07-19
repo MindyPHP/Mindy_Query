@@ -11,6 +11,7 @@
  */
 
 use Mindy\Query\Connection;
+use Mindy\Query\ConnectionManager;
 
 class DatabaseTestCase extends TestCase
 {
@@ -31,6 +32,9 @@ class DatabaseTestCase extends TestCase
         } else {
             $databases = include(__DIR__ . '/config.php');
         }
+        $manager = new ConnectionManager([
+            'databases' => $databases
+        ]);
         $this->database = $databases[$this->driverName];
         $pdo_database = 'pdo_' . $this->driverName;
 

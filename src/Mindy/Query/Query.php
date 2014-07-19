@@ -7,7 +7,6 @@
 
 namespace Mindy\Query;
 
-use Mindy\Helper\Creator;
 use Mindy\Helper\Traits\Accessors;
 use Mindy\Helper\Traits\Configurator;
 
@@ -119,21 +118,6 @@ class Query implements QueryInterface
      * @var string name current database connection
      */
     protected $db;
-    /**
-     * @var Connection[]
-     */
-    protected $_databases = [];
-
-    public function init()
-    {
-        foreach($this->databases as $name => $config) {
-            if(is_array($config)) {
-                $this->_databases[$name] = Creator::createObject($config);
-            } elseif($config instanceof Connection) {
-                $this->_databases[$name] = $config;
-            }
-        }
-    }
 
     /**
      * Creates a DB command that can be used to execute this query.
@@ -142,10 +126,14 @@ class Query implements QueryInterface
     public function createCommand()
     {
         $db = $this->getDb();
-        list ($sql, $params) = $db->getQueryBuilder()->build($this);
+        list($sql, $params) = $db->getQueryBuilder()->build($this);
         return $db->createCommand($sql, $params);
     }
 
+    /**
+     * @param null|string $db
+     * @return $this
+     */
     public function using($db = null)
     {
         $this->db = $db;
@@ -703,15 +691,7 @@ class Query implements QueryInterface
      */
     public function getDb()
     {
-        if($this->db === null) {
-            $this->db = 'default';
-        }
-
-        if(!isset($this->databases[$this->db])) {
-            throw new Exception("Databases not set");
-        }
-
-        return $this->databases[$this->db];
+        return ConnectionManager::getDb($this->db);
     }
 
     /**
