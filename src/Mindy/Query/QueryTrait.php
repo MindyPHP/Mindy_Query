@@ -1,11 +1,15 @@
 <?php
+
+/**
+ * @author Falaleev Maxim <max@studio107.ru>
+ * @version 1.0-fork
+ */
+
 /**
  * @link http://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
  * @license http://www.yiiframework.com/license/
  */
-
-namespace Mindy\Query;
 
 /**
  * The BaseQuery trait represents the minimum method set of a database Query.
@@ -21,6 +25,9 @@ namespace Mindy\Query;
  * @author Carsten Brandt <mail@cebe.cc>
  * @since 2.0
  */
+
+namespace Mindy\Query;
+
 trait QueryTrait
 {
     /**
