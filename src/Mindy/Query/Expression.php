@@ -50,7 +50,7 @@ class Expression
     {
         $this->expression = $expression;
         $this->params = $params;
-        parent::__construct($config);
+        $this->configure($config);
     }
 
     /**
