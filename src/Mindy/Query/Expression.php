@@ -6,6 +6,7 @@
  */
 
 namespace Mindy\Query;
+
 use Mindy\Helper\Traits\Accessors;
 use Mindy\Helper\Traits\Configurator;
 

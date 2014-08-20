@@ -691,7 +691,7 @@ class Query implements QueryInterface
      */
     public function getDb()
     {
-        return \Mindy\Base\Mindy::app()->db->getDb($this->db);
+        return ConnectionManager::getDb();
     }
 
     /**
@@ -759,7 +759,6 @@ class Query implements QueryInterface
     {
         $command = $this->createCommand();
         $command->update($tableName, $attributes, $this->where, $this->params);
-
         return $command->execute();
     }
 
