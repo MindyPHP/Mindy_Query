@@ -29,6 +29,8 @@ class ConnectionManager
      */
     public $databases = [];
 
+    public static $defaultDatabase = 'default';
+
     /**
      * @var Connection[]
      */
@@ -48,7 +50,7 @@ class ConnectionManager
     public static function getDb($db = null)
     {
         if ($db === null) {
-            $db = 'default';
+            $db = self::$defaultDatabase;
         }
 
         if (!isset(self::$_databases[$db])) {
@@ -56,5 +58,10 @@ class ConnectionManager
         }
 
         return self::$_databases[$db];
+    }
+
+    public static function setDefaultDatabase($name)
+    {
+        self::$defaultDatabase = $name;
     }
 }
