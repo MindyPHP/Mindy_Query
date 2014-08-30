@@ -313,7 +313,6 @@ trait Lookup
         return [['and', "EXTRACT(" . $extract . " FROM " . $this->db->quoteColumnName($field) . ") = :" . $paramName], [':' . $paramName => $value]];
     }
 
-
     public function convertToDateTime($value = null)
     {
         /* @var $this \Mindy\Query\Mysql\QueryBuilder */

@@ -6,6 +6,7 @@
  */
 
 namespace Mindy\Query;
+
 use Mindy\Helper\Traits\Accessors;
 use Mindy\Helper\Traits\Configurator;
 
@@ -51,7 +52,10 @@ class Expression
         $this->expression = $expression;
         $this->params = $params;
         $this->configure($config);
+<<<<<<< HEAD
         $this->init();
+=======
+>>>>>>> f32aa8d89bacf9715253b611e8fdba66d71ba278
     }
 
     /**

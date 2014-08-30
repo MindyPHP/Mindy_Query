@@ -8,7 +8,8 @@
 namespace Mindy\Query;
 
 use InvalidArgumentException;
-use Mindy\Core\Object;
+use Mindy\Helper\Traits\Accessors;
+use Mindy\Helper\Traits\Configurator;
 
 /**
  * Transaction represents a DB transaction.
@@ -36,8 +37,10 @@ use Mindy\Core\Object;
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
  */
-class Transaction extends Object
+class Transaction
 {
+    use Accessors, Configurator;
+
     /**
      * @var Connection the database connection that this transaction is associated with.
      */
