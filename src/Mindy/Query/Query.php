@@ -146,20 +146,7 @@ class Query implements QueryInterface
      */
     public function all()
     {
-        $rows = $this->createCommand()->queryAll();
-        if ($this->indexBy === null) {
-            return $rows;
-        }
-        $result = [];
-        foreach ($rows as $row) {
-            if (is_string($this->indexBy)) {
-                $key = $row[$this->indexBy];
-            } else {
-                $key = call_user_func($this->indexBy, $row);
-            }
-            $result[$key] = $row;
-        }
-        return $result;
+        return $this->createCommand()->queryAll();
     }
 
     /**

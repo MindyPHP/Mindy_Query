@@ -54,33 +54,6 @@ trait QueryTrait
      * will be converted into strings without any change.
      */
     public $orderBy;
-    /**
-     * @var string|callable $column the name of the column by which the query results should be indexed by.
-     * This can also be a callable (e.g. anonymous function) that returns the index value based on the given
-     * row data. For more details, see [[indexBy()]]. This property is only used by [[all()]].
-     */
-    public $indexBy;
-
-    /**
-     * Sets the [[indexBy]] property.
-     * @param string|callable $column the name of the column by which the query results should be indexed by.
-     * This can also be a callable (e.g. anonymous function) that returns the index value based on the given
-     * row data. The signature of the callable should be:
-     *
-     * ~~~
-     * function ($row)
-     * {
-     *     // return the index value corresponding to $row
-     * }
-     * ~~~
-     *
-     * @return static the query object itself
-     */
-    public function indexBy($column)
-    {
-        $this->indexBy = $column;
-        return $this;
-    }
 
     /**
      * Sets the WHERE part of the query.
