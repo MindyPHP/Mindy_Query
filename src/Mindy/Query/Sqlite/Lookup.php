@@ -325,4 +325,9 @@ trait Lookup
         }
         return $value;
     }
+
+    public function convertToBoolean($value)
+    {
+        return (bool) $value ? 1 : 0;
+    }
 }
