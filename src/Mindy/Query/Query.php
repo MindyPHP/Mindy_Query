@@ -750,26 +750,6 @@ class Query implements QueryInterface
     }
 
     /**
-     * Updates the whole table using the provided attribute values and conditions.
-     * For example, to change the status to be 1 for all customers whose status is 2:
-     *
-     * ~~~
-     * Customer::objects()->filter(['status' => 2])->update(['status' => 1]);
-     * ~~~
-     *
-     * @param $tableName
-     * @param array $attributes attribute values (name-value pairs) to be saved into the table
-     * @throws Exception
-     * @return integer the number of rows updated
-     */
-    public function updateSql($tableName, array $attributes)
-    {
-        $command = $this->createCommand();
-        $command->update($tableName, $attributes, $this->where, $this->params);
-        return $command->getRawSql();
-    }
-
-    /**
      * Updates the whole table using the provided counter changes and conditions.
      * For example, to increment all customers' age by 1,
      *

@@ -128,7 +128,9 @@ class QueryTest extends DatabaseTestCase
     public function testUpdate()
     {
         $query = new Query();
-        $sql = $query->using('sqlite')->from('tbl_customer')->where(['id' => 1])->updateSql('tbl_customer', ['status' => 2]);
-        $this->assertEquals('UPDATE `tbl_customer` SET `status`=2 WHERE `id`=1', $sql);
+        $query->using('sqlite')->from('tbl_customer')->where(['id' => 1]);
+        $command = $query->createCommand();
+        $command->update('tbl_customer', ['status' => 2], $query->where, $query->params);
+        $this->assertEquals('UPDATE `tbl_customer` SET `status`=2 WHERE `id`=1', $command->getRawSql());
     }
 }
