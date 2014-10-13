@@ -120,4 +120,17 @@ class QueryTest extends DatabaseTestCase
         $result = (new Query())->using('sqlite')->from('tbl_customer')->where(['status' => 3])->one();
         $this->assertFalse($result);
     }
+
+    /**
+     * Issue #11
+     * https://github.com/studio107/Mindy_Query/issues/11
+     */
+    public function testUpdate()
+    {
+        $query = new Query();
+        $query->using('sqlite')->from('tbl_customer')->where(['id' => 1]);
+        $command = $query->createCommand();
+        $command->update('tbl_customer', ['status' => 2], $query->where, $query->params);
+        $this->assertEquals('UPDATE `tbl_customer` SET `status`=2 WHERE `id`=1', $command->getRawSql());
+    }
 }
