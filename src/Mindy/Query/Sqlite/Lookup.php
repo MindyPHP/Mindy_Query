@@ -330,4 +330,9 @@ trait Lookup
     {
         return (bool) $value ? 1 : 0;
     }
+
+    public function getRandomOrder()
+    {
+        return 'RANDOM()';
+    }
 }
