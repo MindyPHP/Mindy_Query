@@ -145,11 +145,11 @@ trait Lookup
      */
     public function buildIn($field, $value)
     {
-        if (is_object($value) && get_class($value) == __CLASS__) {
+        if (is_object($value) && ($value instanceof \Mindy\Orm\QuerySet || $value instanceof \Mindy\Orm\Manager)) {
             return [['and', $this->db->quoteColumnName($field) . ' IN (' . $value->allSql() . ')'], []];
+        } else {
+            return [['in', $field, $value], []];
         }
-
-        return [['in', $field, $value], []];
     }
 
     /**

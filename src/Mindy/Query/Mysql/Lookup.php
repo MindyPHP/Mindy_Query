@@ -1,9 +1,9 @@
 <?php
 /**
- * 
+ *
  *
  * All rights reserved.
- * 
+ *
  * @author Falaleev Maxim
  * @email max@studio107.ru
  * @version 1.0
@@ -144,11 +144,11 @@ trait Lookup
      */
     public function buildIn($field, $value)
     {
-        if (is_object($value) && get_class($value) == __CLASS__) {
+        if (is_object($value) && ($value instanceof \Mindy\Orm\QuerySet || $value instanceof \Mindy\Orm\Manager)) {
             return [['and', $this->db->quoteColumnName($field) . ' IN (' . $value->allSql() . ')'], []];
+        } else {
+            return [['in', $field, $value], []];
         }
-
-        return [['in', $field, $value], []];
     }
 
     /**
@@ -316,11 +316,11 @@ trait Lookup
     public function convertToDateTime($value = null)
     {
         /* @var $this \Mindy\Query\Mysql\QueryBuilder */
-        if($value === null) {
+        if ($value === null) {
             $value = date($this->dateTimeFormat);
-        } elseif(is_numeric($value)) {
+        } elseif (is_numeric($value)) {
             $value = date($this->dateTimeFormat, $value);
-        } elseif(is_string($value)) {
+        } elseif (is_string($value)) {
             $value = date($this->dateTimeFormat, strtotime($value));
         }
         return $value;
@@ -328,7 +328,7 @@ trait Lookup
 
     public function convertToBoolean($value)
     {
-        return (bool) $value ? 1 : 0;
+        return (bool)$value ? 1 : 0;
     }
 
     public function getRandomOrder()
