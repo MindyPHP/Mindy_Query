@@ -64,7 +64,16 @@ class TableSchema
      */
     public function getColumn($name)
     {
-        return isset($this->columns[$name]) ? $this->columns[$name] : null;
+        return $this->hasColumn($name) ? $this->columns[$name] : null;
+    }
+
+    /**
+     * @param string $name column name
+     * @return bool
+     */
+    public function hasColumn($name)
+    {
+        return isset($this->columns[$name]);
     }
 
     /**
