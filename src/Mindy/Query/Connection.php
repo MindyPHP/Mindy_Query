@@ -302,6 +302,11 @@ class Connection
         $this->enableQueryCache = false;
     }
 
+    public function getLogger()
+    {
+        return \Mindy\Base\Mindy::app()->logger;
+    }
+
     /**
      * Establishes a DB connection.
      * It does nothing if a DB connection has already been established.
@@ -315,14 +320,15 @@ class Connection
                 throw new InvalidArgumentException('Connection::dsn cannot be empty.');
             }
             $token = 'Opening DB connection: ' . $this->dsn;
+            $logger = $this->getLogger();
             try {
-                // TODO Yii::trace($token, __METHOD__);
-                // TODO Yii::beginProfile($token, __METHOD__);
+                $logger->debug($token, ['method' => __METHOD__]);
+                $logger->beginProfile($token, ['method' => __METHOD__]);
                 $this->pdo = $this->createPdoInstance();
                 $this->initConnection();
-                // TODO Yii::endProfile($token, __METHOD__);
+                $logger->endProfile($token, ['method' => __METHOD__]);
             } catch (\PDOException $e) {
-                // TODO Yii::endProfile($token, __METHOD__);
+                $logger->endProfile($token, ['method' => __METHOD__]);
                 throw new Exception($e->getMessage(), $e->errorInfo, (int)$e->getCode(), $e);
             }
         }
@@ -335,7 +341,7 @@ class Connection
     public function close()
     {
         if ($this->pdo !== null) {
-            // TODO Yii::trace('Closing DB connection: ' . $this->dsn, __METHOD__);
+            $this->getLogger()->debug('Closing DB connection: ' . $this->dsn, ['method' => __METHOD__]);
             $this->pdo = null;
             $this->_schema = null;
             $this->_transaction = null;

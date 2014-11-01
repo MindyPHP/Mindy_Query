@@ -23,14 +23,14 @@ use Mindy\Query\Exception\UnknownDatabase;
 class ConnectionManager
 {
     use Accessors, Configurator;
-
     /**
      * @var array
      */
     public $databases = [];
-
+    /**
+     * @var string
+     */
     public static $defaultDatabase = 'default';
-
     /**
      * @var Connection[]
      */
