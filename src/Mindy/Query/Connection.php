@@ -12,6 +12,7 @@ use Mindy\Exception\NotSupportedException;
 use Mindy\Helper\Creator;
 use Mindy\Helper\Traits\Accessors;
 use Mindy\Helper\Traits\Configurator;
+use Mindy\Logger\LoggerManager;
 use PDO;
 
 
@@ -304,7 +305,15 @@ class Connection
 
     public function getLogger()
     {
-        return \Mindy\Base\Mindy::app()->logger;
+        static $logger;
+        if ($logger === null) {
+            if (class_exists('\Mindy\Base\Mindy')) {
+                $logger = \Mindy\Base\Mindy::app()->logger;
+            } else {
+                $logger = new LoggerManager;
+            }
+        }
+        return $logger;
     }
 
     /**
@@ -389,7 +398,7 @@ class Connection
         if ($this->charset !== null && in_array($this->getDriverName(), ['pgsql', 'mysql', 'mysqli', 'cubrid'])) {
             $this->pdo->exec('SET NAMES ' . $this->pdo->quote($this->charset));
         }
-        if(!empty($this->fixture)) {
+        if (!empty($this->fixture)) {
             $this->loadFixtures($this->fixture);
         }
         // TODO $this->trigger(self::EVENT_AFTER_OPEN);
