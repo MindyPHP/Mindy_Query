@@ -7,7 +7,6 @@
 
 namespace Mindy\Query;
 
-use Mindy\Base\Mindy;
 use Mindy\Cache\Cache;
 use Mindy\Cache\GroupDependency;
 use Mindy\Exception\InvalidCallException;
@@ -96,7 +95,10 @@ abstract class Schema
 
         if ($db->enableSchemaCache && !in_array($name, $db->schemaCacheExclude, true)) {
             /** @var \Mindy\Cache\Cache $cache */
-            $cache = is_string($db->schemaCache) ? Mindy::app()->getComponent($db->schemaCache) : $db->schemaCache;
+            $cache = null;
+            if(class_exists('\Mindy\Base\Mindy')) {
+                $cache = is_string($db->schemaCache) ? \Mindy\Base\Mindy::app()->getComponent($db->schemaCache) : $db->schemaCache;
+            }
             if ($cache instanceof Cache) {
                 $key = $this->getCacheKey($name);
                 if ($refresh || ($table = $cache->get($key)) === false) {
