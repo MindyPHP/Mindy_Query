@@ -47,6 +47,11 @@ class ConnectionManager
         }
     }
 
+    /**
+     * @param null $db
+     * @return Connection
+     * @throws UnknownDatabase
+     */
     public static function getDb($db = null)
     {
         if ($db === null) {

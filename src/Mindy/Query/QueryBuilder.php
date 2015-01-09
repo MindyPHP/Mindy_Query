@@ -275,9 +275,10 @@ class QueryBuilder
      * @param string $table the name of the table to be created. The name will be properly quoted by the method.
      * @param array $columns the columns (name => definition) in the new table.
      * @param string $options additional SQL fragment that will be appended to the generated SQL.
+     * @param bool $ifNotExists additional SQL fragment IF NOT EXISTS that will be appended after CREATE TABLE.
      * @return string the SQL statement for creating a new DB table.
      */
-    public function createTable($table, $columns, $options = null)
+    public function createTable($table, $columns, $options = null, $ifNotExists = false)
     {
         $cols = [];
         foreach ($columns as $name => $type) {
@@ -287,7 +288,7 @@ class QueryBuilder
                 $cols[] = "\t" . $type;
             }
         }
-        $sql = "CREATE TABLE " . $this->db->quoteTableName($table) . " (\n" . implode(",\n", $cols) . "\n)";
+        $sql = "CREATE TABLE " . ($ifNotExists ? "IF NOT EXISTS " : "") . $this->db->quoteTableName($table) . " (\n" . implode(",\n", $cols) . "\n)";
         return $options === null ? $sql : $sql . ' ' . $options;
     }
 

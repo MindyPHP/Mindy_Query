@@ -545,11 +545,12 @@ class Command
      * @param string $table the name of the table to be created. The name will be properly quoted by the method.
      * @param array $columns the columns (name => definition) in the new table.
      * @param string $options additional SQL fragment that will be appended to the generated SQL.
+     * @param bool $ifNotExists additional SQL fragment IF NOT EXISTS that will be appended after CREATE TABLE.
      * @return Command the command object itself
      */
-    public function createTable($table, $columns, $options = null)
+    public function createTable($table, $columns, $options = null, $ifNotExists = false)
     {
-        $sql = $this->db->getQueryBuilder()->createTable($table, $columns, $options);
+        $sql = $this->db->getQueryBuilder()->createTable($table, $columns, $options, $ifNotExists);
         return $this->setSql($sql);
     }
 
