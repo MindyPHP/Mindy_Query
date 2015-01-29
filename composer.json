@@ -4,15 +4,15 @@
     "license": "MIT",
     "version": "0.1",
     "autoload": {
-        "psr-0": {
-            "": "src/"
+        "psr-4": {
+            "Mindy\\Query\\": "src/Mindy/Query"
         }
     },
     "require": {
         "php": ">=5.4",
-        "mindy/helper": "dev-master",
-        "mindy/exception": "dev-master",
-        "mindy/cache": "dev-master"
+        "mindy/helper": "0.1",
+        "mindy/exception": "0.1",
+        "mindy/cache": "0.1"
     },
     "require-dev": {
         "satooshi/php-coveralls": "dev-master"
