@@ -2,6 +2,7 @@
     "name": "mindy/query",
     "homepage": "https://github.com/studio107/Mindy_Query",
     "license": "MIT",
+    "version": "0.1",
     "autoload": {
         "psr-0": {
             "": "src/"
