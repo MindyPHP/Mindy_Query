@@ -1,4 +1,5 @@
 .idea
+.phpcomplete_extended
 *.iml
 .DS_Store
 build
