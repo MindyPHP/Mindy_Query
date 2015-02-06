@@ -861,12 +861,32 @@ class Query implements QueryInterface
         $n = 0;
         $newCounters = [];
         foreach ($counters as $name => $value) {
-            $name = $this->quoteColumnName($name);
+            $name = $this->getDb()->quoteColumnName($name);
             $newCounters[$name] = new Expression("$name+:bp{$n}", [":bp{$n}" => $value]);
             $n++;
         }
         $command = $this->createCommand()->update($tableName, $newCounters, $this->where, $this->params);
 
+        return $command->execute();
+    }
+
+    /**
+     * Updates the whole table using the provided attribute values and conditions.
+     * For example, to change the status to be 1 for all customers whose status is 2:
+     *
+     * ~~~
+     * Customer::objects()->filter(['status' => 2])->update(['status' => 1]);
+     * ~~~
+     *
+     * @param $tableName
+     * @param array $attributes attribute values (name-value pairs) to be saved into the table
+     * @throws Exception
+     * @return integer the number of rows updated
+     */
+    public function updateAll($tableName, array $attributes)
+    {
+        $command = $this->createCommand();
+        $command->update($tableName, $attributes, $this->where, $this->params);
         return $command->execute();
     }
 }
