@@ -4,6 +4,7 @@
 .DS_Store
 build
 .log
+Tests/tmp/*
 composer.lock
 vendor
 phpunit.phar
