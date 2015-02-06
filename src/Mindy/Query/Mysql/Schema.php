@@ -8,7 +8,9 @@
 namespace Mindy\Query\Mysql;
 
 use Mindy\Query\ColumnSchema;
+use Mindy\Query\Expression;
 use Mindy\Query\TableSchema;
+use PDOException;
 
 /**
  * Schema is the class for retrieving metadata from a MySQL database (version 4.1.x and 5.x).
@@ -23,7 +25,7 @@ class Schema extends \Mindy\Query\Schema
      */
     public $typeMap = [
         'tinyint' => self::TYPE_SMALLINT,
-        'bit' => self::TYPE_SMALLINT,
+        'bit' => self::TYPE_INTEGER,
         'smallint' => self::TYPE_SMALLINT,
         'mediumint' => self::TYPE_INTEGER,
         'int' => self::TYPE_INTEGER,
@@ -37,6 +39,8 @@ class Schema extends \Mindy\Query\Schema
         'tinytext' => self::TYPE_TEXT,
         'mediumtext' => self::TYPE_TEXT,
         'longtext' => self::TYPE_TEXT,
+        'longblob' => self::TYPE_BINARY,
+        'blob' => self::TYPE_BINARY,
         'text' => self::TYPE_TEXT,
         'varchar' => self::TYPE_STRING,
         'string' => self::TYPE_STRING,
@@ -89,7 +93,6 @@ class Schema extends \Mindy\Query\Schema
     {
         $table = new TableSchema;
         $this->resolveTableNames($table, $name);
-
         if ($this->findColumns($table)) {
             $this->findConstraints($table);
             return $table;
@@ -109,8 +112,9 @@ class Schema extends \Mindy\Query\Schema
         if (isset($parts[1])) {
             $table->schemaName = $parts[0];
             $table->name = $parts[1];
+            $table->fullName = $table->schemaName . '.' . $table->name;
         } else {
-            $table->name = $parts[0];
+            $table->fullName = $table->name = $parts[0];
         }
     }
 
@@ -121,21 +125,17 @@ class Schema extends \Mindy\Query\Schema
      */
     protected function loadColumnSchema($info)
     {
-        $column = new ColumnSchema;
-
+        $column = $this->createColumnSchema();
         $column->name = $info['Field'];
         $column->allowNull = $info['Null'] === 'YES';
         $column->isPrimaryKey = strpos($info['Key'], 'PRI') !== false;
         $column->autoIncrement = stripos($info['Extra'], 'auto_increment') !== false;
         $column->comment = $info['Comment'];
-
-
         $column->dbType = $info['Type'];
-        $column->unsigned = strpos($column->dbType, 'unsigned') !== false;
-
+        $column->unsigned = stripos($column->dbType, 'unsigned') !== false;
         $column->type = self::TYPE_STRING;
         if (preg_match('/^(\w+)(?:\(([^\)]+)\))?/', $column->dbType, $matches)) {
-            $type = $matches[1];
+            $type = strtolower($matches[1]);
             if (isset($this->typeMap[$type])) {
                 $column->type = $this->typeMap[$type];
             }
@@ -148,11 +148,11 @@ class Schema extends \Mindy\Query\Schema
                     $column->enumValues = $values;
                 } else {
                     $values = explode(',', $matches[2]);
-                    $column->size = $column->precision = (int)$values[0];
+                    $column->size = $column->precision = (int) $values[0];
                     if (isset($values[1])) {
-                        $column->scale = (int)$values[1];
+                        $column->scale = (int) $values[1];
                     }
-                    if ($column->size === 1 && ($type === 'tinyint' || $type === 'bit')) {
+                    if ($column->size === 1 && $type === 'bit') {
                         $column->type = 'boolean';
                     } elseif ($type === 'bit') {
                         if ($column->size > 32) {
@@ -164,13 +164,16 @@ class Schema extends \Mindy\Query\Schema
                 }
             }
         }
-
         $column->phpType = $this->getColumnPhpType($column);
-
-        if ($column->type !== 'timestamp' || $info['Default'] !== 'CURRENT_TIMESTAMP') {
-            $column->defaultValue = $column->typecast($info['Default']);
+        if (!$column->isPrimaryKey) {
+            if ($column->type === 'timestamp' && $info['Default'] === 'CURRENT_TIMESTAMP') {
+                $column->defaultValue = new Expression('CURRENT_TIMESTAMP');
+            } elseif (isset($type) && $type === 'bit') {
+                $column->defaultValue = bindec(trim($info['Default'],'b\''));
+            } else {
+                $column->defaultValue = $column->phpTypecast($info['Default']);
+            }
         }
-
         return $column;
     }
 
@@ -182,13 +185,14 @@ class Schema extends \Mindy\Query\Schema
      */
     protected function findColumns($table)
     {
-        $sql = 'SHOW FULL COLUMNS FROM ' . $this->quoteSimpleTableName($table->name);
+        $sql = 'SHOW FULL COLUMNS FROM ' . $this->quoteTableName($table->fullName);
         try {
             $columns = $this->db->createCommand($sql)->queryAll();
         } catch (\Exception $e) {
             $previous = $e->getPrevious();
-            if ($previous instanceof \PDOException && $previous->getCode() == '42S02') {
+            if ($previous instanceof \PDOException && strpos($previous->getMessage(), 'SQLSTATE[42S02') !== false) {
                 // table does not exist
+                // https://dev.mysql.com/doc/refman/5.5/en/error-messages-server.html#error_er_bad_table_error
                 return false;
             }
             throw $e;
@@ -213,7 +217,7 @@ class Schema extends \Mindy\Query\Schema
      */
     protected function getCreateTableSql($table)
     {
-        $row = $this->db->createCommand('SHOW CREATE TABLE ' . $this->quoteSimpleTableName($table->name))->queryOne();
+        $row = $this->db->createCommand('SHOW CREATE TABLE ' . $this->quoteTableName($table->fullName))->queryOne();
         if (isset($row['Create Table'])) {
             $sql = $row['Create Table'];
         } else {
@@ -230,7 +234,6 @@ class Schema extends \Mindy\Query\Schema
     protected function findConstraints($table)
     {
         $sql = $this->getCreateTableSql($table);
-
         $regexp = '/FOREIGN KEY\s+\(([^\)]+)\)\s+REFERENCES\s+([^\(^\s]+)\s*\(([^\)]+)\)/mi';
         if (preg_match_all($regexp, $sql, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
@@ -251,8 +254,8 @@ class Schema extends \Mindy\Query\Schema
      *
      * ~~~
      * [
-     *     'IndexName1' => ['col1' [, ...]],
-     *     'IndexName2' => ['col2' [, ...]],
+     *  'IndexName1' => ['col1' [, ...]],
+     *  'IndexName2' => ['col2' [, ...]],
      * ]
      * ~~~
      *
@@ -263,8 +266,7 @@ class Schema extends \Mindy\Query\Schema
     {
         $sql = $this->getCreateTableSql($table);
         $uniqueIndexes = [];
-
-        $regexp = '/UNIQUE KEY\s+([^\(^\s]+)\s*\(([^\)]+)\)/mi';
+        $regexp = '/UNIQUE KEY\s+([^\(\s]+)\s*\(([^\(\)]+)\)/mi';
         if (preg_match_all($regexp, $sql, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $indexName = str_replace('`', '', $match[1]);

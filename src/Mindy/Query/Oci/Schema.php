@@ -7,7 +7,9 @@
 
 namespace Mindy\Query\Oci;
 
+use Mindy\Exception\InvalidCallException;
 use Mindy\Query\ColumnSchema;
+use Mindy\Query\Connection;
 use Mindy\Query\TableSchema;
 
 /**
@@ -22,22 +24,31 @@ use Mindy\Query\TableSchema;
  */
 class Schema extends \Mindy\Query\Schema
 {
-    private $_defaultSchema;
+    /**
+     * @inheritdoc
+     */
+    public function init()
+    {
+        parent::init();
+        if ($this->defaultSchema === null) {
+            $this->defaultSchema = strtoupper($this->db->username);
+        }
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function releaseSavepoint($name)
+    {
+        // does nothing as Oracle does not support this
+    }
 
     /**
      * @inheritdoc
      */
     public function quoteSimpleTableName($name)
     {
-        return '"' . $name . '"';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function quoteSimpleColumnName($name)
-    {
-        return '"' . $name . '"';
+        return strpos($name, '"') !== false ? $name : '"' . $name . '"';
     }
 
     /**
@@ -55,7 +66,6 @@ class Schema extends \Mindy\Query\Schema
     {
         $table = new TableSchema();
         $this->resolveTableNames($table, $name);
-
         if ($this->findColumns($table)) {
             $this->findConstraints($table);
             return $table;
@@ -77,28 +87,10 @@ class Schema extends \Mindy\Query\Schema
             $table->schemaName = $parts[0];
             $table->name = $parts[1];
         } else {
-            $table->schemaName = $this->getDefaultSchema();
-            $table->name = $parts[0];
+            $table->schemaName = $this->defaultSchema;
+            $table->name = $name;
         }
-    }
-
-    /**
-     * @return string default schema.
-     */
-    public function getDefaultSchema()
-    {
-        if ($this->_defaultSchema === null) {
-            $this->setDefaultSchema(strtoupper($this->db->username));
-        }
-        return $this->_defaultSchema;
-    }
-
-    /**
-     * @param string $schema default schema.
-     */
-    public function setDefaultSchema($schema)
-    {
-        $this->_defaultSchema = $schema;
+        $table->fullName = $table->schemaName !== $this->defaultSchema ? $table->schemaName . '.' . $table->name : $table->name;
     }
 
     /**
@@ -110,7 +102,6 @@ class Schema extends \Mindy\Query\Schema
     {
         $schemaName = $table->schemaName;
         $tableName = $table->name;
-
         $sql = <<<EOD
 SELECT a.column_name, a.data_type ||
     case
@@ -133,58 +124,105 @@ SELECT a.column_name, a.data_type ||
     com.comments as column_comment
 FROM ALL_TAB_COLUMNS A
 inner join ALL_OBJECTS B ON b.owner = a.owner and ltrim(B.OBJECT_NAME) = ltrim(A.TABLE_NAME)
-LEFT JOIN user_col_comments com ON (A.table_name = com.table_name AND A.column_name = com.column_name)
+LEFT JOIN all_col_comments com ON (A.owner = com.owner AND A.table_name = com.table_name AND A.column_name = com.column_name)
 WHERE
     a.owner = '{$schemaName}'
-	and (b.object_type = 'TABLE' or b.object_type = 'VIEW')
-	and b.object_name = '{$tableName}'
+    and (b.object_type = 'TABLE' or b.object_type = 'VIEW')
+    and b.object_name = '{$tableName}'
 ORDER by a.column_id
 EOD;
-
         try {
             $columns = $this->db->createCommand($sql)->queryAll();
         } catch (\Exception $e) {
             return false;
         }
-
+        if (empty($columns)) {
+            return false;
+        }
         foreach ($columns as $column) {
             $c = $this->createColumn($column);
             $table->columns[$c->name] = $c;
             if ($c->isPrimaryKey) {
                 $table->primaryKey[] = $c->name;
-                $table->sequenceName = '';
+                $table->sequenceName = $this->getTableSequenceName($table->name);
                 $c->autoIncrement = true;
             }
         }
         return true;
     }
+    /**
+     * Sequence name of table
+     *
+     * @param $tablename
+     * @internal param \yii\db\TableSchema $table ->name the table schema
+     * @return string whether the sequence exists
+     */
+    protected function getTableSequenceName($tablename){
+        $seq_name_sql="select ud.referenced_name as sequence_name
+                        from   user_dependencies ud
+                               join user_triggers ut on (ut.trigger_name = ud.name)
+                        where ut.table_name='{$tablename}'
+                              and ud.type='TRIGGER'
+                              and ud.referenced_type='SEQUENCE'";
+        return $this->db->createCommand($seq_name_sql)->queryScalar();
+    }
+    /**
+     * @Overrides method in class 'Schema'
+     * @see http://www.php.net/manual/en/function.PDO-lastInsertId.php -> Oracle does not support this
+     *
+     * Returns the ID of the last inserted row or sequence value.
+     * @param string $sequenceName name of the sequence object (required by some DBMS)
+     * @return string the row ID of the last row inserted, or the last value retrieved from the sequence object
+     * @throws InvalidCallException if the DB connection is not active
+     */
+    public function getLastInsertID($sequenceName = '')
+    {
+        if ($this->db->isActive) {
+            // get the last insert id from the master connection
+            return $this->db->useMaster(function (Connection $db) use ($sequenceName) {
+                return $db->createCommand("SELECT {$sequenceName}.CURRVAL FROM DUAL")->queryScalar();
+            });
+        } else {
+            throw new InvalidCallException('DB Connection is not active.');
+        }
+    }
 
+    /**
+     * Creates ColumnSchema instance
+     *
+     * @param array $column
+     * @return ColumnSchema
+     */
     protected function createColumn($column)
     {
-        $c = new ColumnSchema();
+        $c = $this->createColumnSchema();
         $c->name = $column['COLUMN_NAME'];
         $c->allowNull = $column['NULLABLE'] === 'Y';
         $c->isPrimaryKey = strpos($column['KEY'], 'P') !== false;
         $c->comment = $column['COLUMN_COMMENT'] === null ? '' : $column['COLUMN_COMMENT'];
-
         $this->extractColumnType($c, $column['DATA_TYPE']);
         $this->extractColumnSize($c, $column['DATA_TYPE']);
-
-        if (stripos($column['DATA_DEFAULT'], 'timestamp') !== false) {
-            $c->defaultValue = null;
-        } else {
-            $c->defaultValue = $c->typecast($column['DATA_DEFAULT']);
+        $c->phpType = $this->getColumnPhpType($c);
+        if (!$c->isPrimaryKey) {
+            if (stripos($column['DATA_DEFAULT'], 'timestamp') !== false) {
+                $c->defaultValue = null;
+            } else {
+                $c->defaultValue = $c->phpTypecast($column['DATA_DEFAULT']);
+            }
         }
-
         return $c;
     }
 
+    /**
+     * Finds constraints and fills them into TableSchema object passed
+     * @param TableSchema $table
+     */
     protected function findConstraints($table)
     {
         $sql = <<<EOD
-		SELECT D.constraint_type as CONSTRAINT_TYPE, C.COLUMN_NAME, C.position, D.r_constraint_name,
+        SELECT D.constraint_type as CONSTRAINT_TYPE, C.COLUMN_NAME, C.position, D.r_constraint_name,
                 E.table_name as table_ref, f.column_name as column_ref,
-            	C.table_name
+                C.table_name
         FROM ALL_CONS_COLUMNS C
         inner join ALL_constraints D on D.OWNER = C.OWNER and D.constraint_name = C.constraint_name
         left join ALL_constraints E on E.OWNER = D.r_OWNER and E.constraint_name = D.r_constraint_name
@@ -221,7 +259,6 @@ EOD;
             $command = $this->db->createCommand($sql);
             $command->bindParam(':schema', $schema);
         }
-
         $rows = $command->queryAll();
         $names = [];
         foreach ($rows as $row) {
@@ -238,13 +275,12 @@ EOD;
     protected function extractColumnType($column, $dbType)
     {
         $column->dbType = $dbType;
-
         if (strpos($dbType, 'FLOAT') !== false) {
             $column->type = 'double';
         } elseif (strpos($dbType, 'NUMBER') !== false || strpos($dbType, 'INTEGER') !== false) {
             if (strpos($dbType, '(') && preg_match('/\((.*)\)/', $dbType, $matches)) {
                 $values = explode(',', $matches[1]);
-                if (isset($values[1]) and (((int)$values[1]) > 0)) {
+                if (isset($values[1]) && (((int) $values[1]) > 0)) {
                     $column->type = 'double';
                 } else {
                     $column->type = 'integer';
@@ -252,6 +288,10 @@ EOD;
             } else {
                 $column->type = 'double';
             }
+        } elseif (strpos($dbType, 'BLOB') !== false) {
+            $column->type = 'binary';
+        } elseif (strpos($dbType, 'CLOB') !== false) {
+            $column->type = 'text';
         } else {
             $column->type = 'string';
         }
@@ -266,9 +306,9 @@ EOD;
     {
         if (strpos($dbType, '(') && preg_match('/\((.*)\)/', $dbType, $matches)) {
             $values = explode(',', $matches[1]);
-            $column->size = $column->precision = (int)$values[0];
+            $column->size = $column->precision = (int) $values[0];
             if (isset($values[1])) {
-                $column->scale = (int)$values[1];
+                $column->scale = (int) $values[1];
             }
         }
     }

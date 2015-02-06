@@ -7,8 +7,11 @@
 
 namespace Mindy\Query\Sqlite;
 
+use Mindy\Exception\NotSupportedException;
 use Mindy\Query\ColumnSchema;
+use Mindy\Query\Expression;
 use Mindy\Query\TableSchema;
+use Mindy\Query\Transaction;
 
 /**
  * Schema is the class for retrieving metadata from a SQLite (2/3) database.
@@ -24,6 +27,8 @@ class Schema extends \Mindy\Query\Schema
     public $typeMap = [
         'tinyint' => self::TYPE_SMALLINT,
         'bit' => self::TYPE_SMALLINT,
+        'boolean' => self::TYPE_BOOLEAN,
+        'bool' => self::TYPE_BOOLEAN,
         'smallint' => self::TYPE_SMALLINT,
         'mediumint' => self::TYPE_INTEGER,
         'int' => self::TYPE_INTEGER,
@@ -41,6 +46,7 @@ class Schema extends \Mindy\Query\Schema
         'varchar' => self::TYPE_STRING,
         'string' => self::TYPE_STRING,
         'char' => self::TYPE_STRING,
+        'blob' => self::TYPE_BINARY,
         'datetime' => self::TYPE_DATETIME,
         'year' => self::TYPE_DATE,
         'date' => self::TYPE_DATE,
@@ -84,8 +90,7 @@ class Schema extends \Mindy\Query\Schema
     /**
      * Returns all table names in the database.
      * @param string $schema the schema of the tables. Defaults to empty string, meaning the current or default schema.
-     * If not empty, the returned table names will be prefixed with the schema name.
-     * @return array all table names in the database.
+     * @return array all table names in the database. The names have NO schema name prefix.
      */
     protected function findTableNames($schema = '')
     {
@@ -102,7 +107,7 @@ class Schema extends \Mindy\Query\Schema
     {
         $table = new TableSchema;
         $table->name = $name;
-
+        $table->fullName = $name;
         if ($this->findColumns($table)) {
             $this->findConstraints($table);
             return $table;
@@ -123,7 +128,6 @@ class Schema extends \Mindy\Query\Schema
         if (empty($columns)) {
             return false;
         }
-
         foreach ($columns as $info) {
             $column = $this->loadColumnSchema($info);
             $table->columns[$column->name] = $column;
@@ -135,7 +139,6 @@ class Schema extends \Mindy\Query\Schema
             $table->sequenceName = '';
             $table->columns[$table->primaryKey[0]]->autoIncrement = true;
         }
-
         return true;
     }
 
@@ -148,7 +151,7 @@ class Schema extends \Mindy\Query\Schema
         $sql = "PRAGMA foreign_key_list(" . $this->quoteSimpleTableName($table->name) . ')';
         $keys = $this->db->createCommand($sql)->queryAll();
         foreach ($keys as $key) {
-            $id = (int)$key['id'];
+            $id = (int) $key['id'];
             if (!isset($table->foreignKeys[$id])) {
                 $table->foreignKeys[$id] = [$key['table'], $key['from'] => $key['to']];
             } else {
@@ -164,8 +167,8 @@ class Schema extends \Mindy\Query\Schema
      *
      * ~~~
      * [
-     *     'IndexName1' => ['col1' [, ...]],
-     *     'IndexName2' => ['col2' [, ...]],
+     *  'IndexName1' => ['col1' [, ...]],
+     *  'IndexName2' => ['col2' [, ...]],
      * ]
      * ~~~
      *
@@ -177,11 +180,9 @@ class Schema extends \Mindy\Query\Schema
         $sql = "PRAGMA index_list(" . $this->quoteSimpleTableName($table->name) . ')';
         $indexes = $this->db->createCommand($sql)->queryAll();
         $uniqueIndexes = [];
-
         foreach ($indexes as $index) {
             $indexName = $index['name'];
             $indexInfo = $this->db->createCommand("PRAGMA index_info(" . $this->quoteValue($index['name']) . ")")->queryAll();
-
             if ($index['unique']) {
                 $uniqueIndexes[$indexName] = [];
                 foreach ($indexInfo as $row) {
@@ -199,26 +200,23 @@ class Schema extends \Mindy\Query\Schema
      */
     protected function loadColumnSchema($info)
     {
-        $column = new ColumnSchema;
+        $column = $this->createColumnSchema();
         $column->name = $info['name'];
         $column->allowNull = !$info['notnull'];
         $column->isPrimaryKey = $info['pk'] != 0;
-
-        $column->dbType = $info['type'];
+        $column->dbType = strtolower($info['type']);
         $column->unsigned = strpos($column->dbType, 'unsigned') !== false;
-
         $column->type = self::TYPE_STRING;
         if (preg_match('/^(\w+)(?:\(([^\)]+)\))?/', $column->dbType, $matches)) {
             $type = strtolower($matches[1]);
             if (isset($this->typeMap[$type])) {
                 $column->type = $this->typeMap[$type];
             }
-
             if (!empty($matches[2])) {
                 $values = explode(',', $matches[2]);
-                $column->size = $column->precision = (int)$values[0];
+                $column->size = $column->precision = (int) $values[0];
                 if (isset($values[1])) {
-                    $column->scale = (int)$values[1];
+                    $column->scale = (int) $values[1];
                 }
                 if ($column->size === 1 && ($type === 'tinyint' || $type === 'bit')) {
                     $column->type = 'boolean';
@@ -232,14 +230,39 @@ class Schema extends \Mindy\Query\Schema
             }
         }
         $column->phpType = $this->getColumnPhpType($column);
-
-        $value = $info['dflt_value'];
-        if ($column->type === 'string') {
-            $column->defaultValue = trim($value, "'\"");
-        } else {
-            $column->defaultValue = $column->typecast(strcasecmp($value, 'null') ? $value : null);
+        if (!$column->isPrimaryKey) {
+            if ($info['dflt_value'] === 'null' || $info['dflt_value'] === '' || $info['dflt_value'] === null) {
+                $column->defaultValue = null;
+            } elseif ($column->type === 'timestamp' && $info['dflt_value'] === 'CURRENT_TIMESTAMP') {
+                $column->defaultValue = new Expression('CURRENT_TIMESTAMP');
+            } else {
+                $value = trim($info['dflt_value'], "'\"");
+                $column->defaultValue = $column->phpTypecast($value);
+            }
         }
-
         return $column;
+    }
+
+    /**
+     * Sets the isolation level of the current transaction.
+     * @param string $level The transaction isolation level to use for this transaction.
+     * This can be either [[Transaction::READ_UNCOMMITTED]] or [[Transaction::SERIALIZABLE]].
+     * @throws \Mindy\Exception\NotSupportedException when unsupported isolation levels are used.
+     * SQLite only supports SERIALIZABLE and READ UNCOMMITTED.
+     * @see http://www.sqlite.org/pragma.html#pragma_read_uncommitted
+     */
+    public function setTransactionIsolationLevel($level)
+    {
+        switch($level)
+        {
+            case Transaction::SERIALIZABLE:
+                $this->db->createCommand("PRAGMA read_uncommitted = False;")->execute();
+                break;
+            case Transaction::READ_UNCOMMITTED:
+                $this->db->createCommand("PRAGMA read_uncommitted = True;")->execute();
+                break;
+            default:
+                throw new NotSupportedException(get_class($this) . ' only supports transaction isolation levels READ UNCOMMITTED and SERIALIZABLE.');
+        }
     }
 }

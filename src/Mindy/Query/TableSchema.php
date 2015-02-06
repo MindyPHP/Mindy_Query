@@ -32,6 +32,12 @@ class TableSchema
      */
     public $name;
     /**
+     * @var string the full name of this table, which includes the schema name prefix, if any.
+     * Note that if the schema name is the same as the [[Schema::defaultSchema|default schema name]],
+     * the schema name will not be included.
+     */
+    public $fullName;
+    /**
      * @var string[] primary keys of this table.
      */
     public $primaryKey = [];

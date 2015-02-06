@@ -10,11 +10,13 @@
  * @date 06/01/14.01.2014 17:18
  */
 
+use Mindy\Helper\Creator;
 use Mindy\Query\Connection;
 use Mindy\Query\ConnectionManager;
 
 class DatabaseTestCase extends TestCase
 {
+    public static $params;
     protected $database;
     protected $driverName = 'mysql';
 
@@ -32,9 +34,9 @@ class DatabaseTestCase extends TestCase
         } else {
             $databases = include(__DIR__ . '/config.php');
         }
-        $manager = new ConnectionManager([
-            'databases' => $databases
-        ]);
+
+        new ConnectionManager(['databases' => $databases]);
+
         $this->database = $databases[$this->driverName];
         $pdo_database = 'pdo_' . $this->driverName;
 
@@ -60,25 +62,58 @@ class DatabaseTestCase extends TestCase
         if (!$reset && $this->db) {
             return $this->db;
         }
-        $db = new Connection;
-        $db->dsn = $this->database['dsn'];
-        if (isset($this->database['username'])) {
-            $db->username = $this->database['username'];
-            $db->password = $this->database['password'];
+        $config = $this->database;
+        if (isset($config['fixture'])) {
+            $fixture = $config['fixture'];
+            unset($config['fixture']);
+        } else {
+            $fixture = null;
         }
-        if (isset($this->database['attributes'])) {
-            $db->attributes = $this->database['attributes'];
+        try {
+            $this->db = $this->prepareDatabase($config, $fixture, $open);
+            ConnectionManager::setDb($this->driverName, $this->db);
+        } catch (\Exception $e) {
+            $this->markTestSkipped("Something wrong when preparing database: " . $e->getMessage());
         }
-        if ($open) {
-            $db->open();
-            $lines = explode(';', file_get_contents($this->database['fixture']));
+        return $this->db;
+    }
+
+    public function prepareDatabase($config, $fixture, $open = true)
+    {
+        if (!isset($config['class'])) {
+            $config['class'] = 'Mindy\Query\Connection';
+        }
+        /* @var $db \Mindy\Query\Connection */
+        $db = Creator::createObject($config);
+        if (!$open) {
+            return $db;
+        }
+        $db->open();
+        if ($fixture !== null) {
+            $lines = explode(';', file_get_contents($fixture));
             foreach ($lines as $line) {
                 if (trim($line) !== '') {
-                    $db->pdo->exec($line);
+                    if ($db->pdo->exec($line) === false) {
+                        var_dump($db->pdo->errorInfo());
+                        die(1);
+                    }
                 }
             }
         }
-        $this->db = $db;
         return $db;
+    }
+
+    /**
+     * Returns a test configuration param from /data/config.php
+     * @param  string $name params name
+     * @param  mixed $default default value to use when param is not set.
+     * @return mixed  the value of the configuration param
+     */
+    public static function getParam($name, $default = null)
+    {
+        if (static::$params === null) {
+            static::$params = require(__DIR__ . '/config.php');
+        }
+        return isset(static::$params[$name]) ? static::$params[$name] : $default;
     }
 }

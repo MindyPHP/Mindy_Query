@@ -8,7 +8,7 @@
 namespace Mindy\Query;
 
 use Mindy\Cache\Cache;
-use Mindy\Cache\GroupDependency;
+use Mindy\Cache\TagDependency;
 use Mindy\Exception\InvalidCallException;
 use Mindy\Exception\NotSupportedException;
 use Mindy\Helper\Traits\Accessors;
@@ -52,11 +52,21 @@ abstract class Schema
     const TYPE_BINARY = 'binary';
     const TYPE_BOOLEAN = 'boolean';
     const TYPE_MONEY = 'money';
-
     /**
      * @var Connection the database connection
      */
     public $db;
+    /**
+     * @var string the default schema name used for the current session.
+     */
+    public $defaultSchema;
+    /**
+     * @var array map of DB errors and corresponding exceptions
+     * If left part is found in DB error message exception class from the right part is used.
+     */
+    public $exceptionMap = [
+        'SQLSTATE[23' => 'yii\db\IntegrityException',
+    ];
     /**
      * @var array list of ALL table names in the database
      */
@@ -71,12 +81,20 @@ abstract class Schema
     private $_builder;
 
     /**
+     * @return \Mindy\Query\ColumnSchema
+     * @throws \Mindy\Exception\InvalidConfigException
+     */
+    protected function createColumnSchema()
+    {
+        return new ColumnSchema;
+    }
+
+    /**
      * Loads the metadata for the specified table.
      * @param string $name table name
      * @return TableSchema DBMS-dependent table metadata, null if the table does not exist.
      */
     abstract protected function loadTableSchema($name);
-
 
     /**
      * Obtains the metadata for the named table.
@@ -86,33 +104,34 @@ abstract class Schema
      */
     public function getTableSchema($name, $refresh = false)
     {
-        if (isset($this->_tables[$name]) && !$refresh) {
+        if (array_key_exists($name, $this->_tables) && !$refresh) {
             return $this->_tables[$name];
         }
-
         $db = $this->db;
         $realName = $this->getRawTableName($name);
-
         if ($db->enableSchemaCache && !in_array($name, $db->schemaCacheExclude, true)) {
-            /** @var \Mindy\Cache\Cache $cache */
-            $cache = null;
-            if(class_exists('\Mindy\Base\Mindy')) {
-                $cache = is_string($db->schemaCache) ? \Mindy\Base\Mindy::app()->getComponent($db->schemaCache) : $db->schemaCache;
+            /* @var $cache Cache */
+            if (is_string($db->schemaCache) && class_exists('\Mindy\Base\Mindy')) {
+                $cache = \Mindy\Base\Mindy::app()->getComponent($db->schemaCache, false);
+            } else {
+                $cache = $db->schemaCache;
             }
             if ($cache instanceof Cache) {
                 $key = $this->getCacheKey($name);
                 if ($refresh || ($table = $cache->get($key)) === false) {
-                    $table = $this->loadTableSchema($realName);
+                    $this->_tables[$name] = $table = $this->loadTableSchema($realName);
                     if ($table !== null) {
-                        $cache->set($key, $table, $db->schemaCacheDuration, new GroupDependency([
-                            'group' => $this->getCacheGroup(),
+                        $cache->set($key, $table, $db->schemaCacheDuration, new TagDependency([
+                            'tags' => $this->getCacheTag(),
                         ]));
                     }
+                } else {
+                    $this->_tables[$name] = $table;
                 }
-                return $this->_tables[$name] = $table;
+                return $this->_tables[$name];
             }
         }
-        return $this->_tables[$name] = $table = $this->loadTableSchema($realName);
+        return $this->_tables[$name] = $this->loadTableSchema($realName);
     }
 
     /**
@@ -131,11 +150,11 @@ abstract class Schema
     }
 
     /**
-     * Returns the cache group name.
+     * Returns the cache tag name.
      * This allows [[refresh()]] to invalidate all cached table schemas.
-     * @return string the cache group name
+     * @return string the cache tag name
      */
-    protected function getCacheGroup()
+    protected function getCacheTag()
     {
         return md5(serialize([
             __CLASS__,
@@ -220,11 +239,14 @@ abstract class Schema
      */
     public function refresh()
     {
-        // TODO
-        /** @var Cache $cache */
-        $cache = is_string($this->db->schemaCache) ? Yii::$app->getComponent($this->db->schemaCache) : $this->db->schemaCache;
+        /* @var $cache Cache */
+        if (is_string($this->db->schemaCache) && class_exists('\Mindy\Base\Mindy')) {
+            $cache = Mindy::app()->getComponent($this->db->schemaCache, false);
+        } else {
+            $cache = $this->db->schemaCache;
+        }
         if ($this->db->enableSchemaCache && $cache instanceof Cache) {
-            GroupDependency::invalidate($cache, $this->getCacheGroup());
+            TagDependency::invalidate($cache, $this->getCacheTag());
         }
         $this->_tableNames = [];
         $this->_tables = [];
@@ -259,8 +281,8 @@ abstract class Schema
      *
      * ~~~
      * [
-     *     'IndexName1' => ['col1' [, ...]],
-     *     'IndexName2' => ['col2' [, ...]],
+     *  'IndexName1' => ['col1' [, ...]],
+     *  'IndexName2' => ['col2' [, ...]],
      * ]
      * ~~~
      *
@@ -285,10 +307,58 @@ abstract class Schema
     public function getLastInsertID($sequenceName = '')
     {
         if ($this->db->isActive) {
-            return $this->db->pdo->lastInsertId($sequenceName);
+            return $this->db->pdo->lastInsertId($sequenceName === '' ? null : $sequenceName);
         } else {
             throw new InvalidCallException('DB Connection is not active.');
         }
+    }
+
+    /**
+     * @return boolean whether this DBMS supports [savepoint](http://en.wikipedia.org/wiki/Savepoint).
+     */
+    public function supportsSavepoint()
+    {
+        return $this->db->enableSavepoint;
+    }
+
+    /**
+     * Creates a new savepoint.
+     * @param string $name the savepoint name
+     */
+    public function createSavepoint($name)
+    {
+        $this->db->createCommand("SAVEPOINT $name")->execute();
+    }
+
+    /**
+     * Releases an existing savepoint.
+     * @param string $name the savepoint name
+     */
+    public function releaseSavepoint($name)
+    {
+        $this->db->createCommand("RELEASE SAVEPOINT $name")->execute();
+    }
+
+    /**
+     * Rolls back to a previously created savepoint.
+     * @param string $name the savepoint name
+     */
+    public function rollBackSavepoint($name)
+    {
+        $this->db->createCommand("ROLLBACK TO SAVEPOINT $name")->execute();
+    }
+
+    /**
+     * Sets the isolation level of the current transaction.
+     * @param string $level The transaction isolation level to use for this transaction.
+     * This can be one of [[Transaction::READ_UNCOMMITTED]], [[Transaction::READ_COMMITTED]], [[Transaction::REPEATABLE_READ]]
+     * and [[Transaction::SERIALIZABLE]] but also a string containing DBMS specific syntax to be used
+     * after `SET TRANSACTION ISOLATION LEVEL`.
+     * @see http://en.wikipedia.org/wiki/Isolation_%28database_systems%29#Isolation_levels
+     */
+    public function setTransactionIsolationLevel($level)
+    {
+        $this->db->createCommand("SET TRANSACTION ISOLATION LEVEL $level;")->execute();
     }
 
     /**
@@ -303,11 +373,10 @@ abstract class Schema
         if (!is_string($str)) {
             return $str;
         }
-
-        $this->db->open();
-        if (($value = $this->db->pdo->quote($str)) !== false) {
+        if (($value = $this->db->getSlavePdo()->quote($str)) !== false) {
             return $value;
-        } else { // the driver doesn't support quote (e.g. oci)
+        } else {
+            // the driver doesn't support quote (e.g. oci)
             return "'" . addcslashes(str_replace("'", "''", $str), "\000\n\r\\\032") . "'";
         }
     }
@@ -334,7 +403,6 @@ abstract class Schema
             $parts[$i] = $this->quoteSimpleTableName($part);
         }
         return implode('.', $parts);
-
     }
 
     /**
@@ -408,12 +476,14 @@ abstract class Schema
      */
     protected function getColumnPhpType($column)
     {
-        static $typeMap = [ // abstract type => php type
+        static $typeMap = [
+            // abstract type => php type
             'smallint' => 'integer',
             'integer' => 'integer',
             'bigint' => 'integer',
             'boolean' => 'boolean',
             'float' => 'double',
+            'binary' => 'resource',
         ];
         if (isset($typeMap[$column->type])) {
             if ($column->type === 'bigint') {
@@ -426,5 +496,39 @@ abstract class Schema
         } else {
             return 'string';
         }
+    }
+
+    /**
+     * Converts a DB exception to a more concrete one if possible.
+     *
+     * @param \Exception $e
+     * @param string $rawSql SQL that produced exception
+     * @return Exception
+     */
+    public function convertException(\Exception $e, $rawSql)
+    {
+        if ($e instanceof Exception) {
+            return $e;
+        }
+        $exceptionClass = '\Mindy\Query\Exception';
+        foreach ($this->exceptionMap as $error => $class) {
+            if (strpos($e->getMessage(), $error) !== false) {
+                $exceptionClass = $class;
+            }
+        }
+        $message = $e->getMessage() . "\nThe SQL being executed was: $rawSql";
+        $errorInfo = $e instanceof \PDOException ? $e->errorInfo : null;
+        return new $exceptionClass($message, $errorInfo, (int)$e->getCode(), $e);
+    }
+
+    /**
+     * Returns a value indicating whether a SQL statement is for read purpose.
+     * @param string $sql the SQL statement
+     * @return boolean whether a SQL statement is for read purpose.
+     */
+    public function isReadQuery($sql)
+    {
+        $pattern = '/^\s*(SELECT|SHOW|DESCRIBE)\b/i';
+        return preg_match($pattern, $sql) > 0;
     }
 }

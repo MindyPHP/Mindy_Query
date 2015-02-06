@@ -19,7 +19,22 @@
 
     <testsuites>
         <testsuite name="Query">
-            <directory>./Tests/Cases/Query/</directory>
+            <directory>./Tests/Cases/Query/Base</directory>
+        </testsuite>
+        <testsuite name="Query/Sqlite">
+            <directory>./Tests/Cases/Query/Sqlite</directory>
+        </testsuite>
+        <testsuite name="Query/Pgsql">
+            <directory>./Tests/Cases/Query/Pgsql</directory>
+        </testsuite>
+        <testsuite name="Query/Cubrid">
+            <directory>./Tests/Cases/Query/Cubrid</directory>
+        </testsuite>
+        <testsuite name="Query/Mssql">
+            <directory>./Tests/Cases/Query/Mssql</directory>
+        </testsuite>
+        <testsuite name="Query/Mysql">
+            <directory>./Tests/Cases/Query/Mysql</directory>
         </testsuite>
     </testsuites>
 

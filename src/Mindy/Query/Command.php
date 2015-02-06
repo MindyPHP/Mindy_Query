@@ -7,7 +7,6 @@
 
 namespace Mindy\Query;
 
-// TODO use Mindy\Cache\Cache;
 use Mindy\Exception\NotSupportedException;
 use Mindy\Helper\Traits\Accessors;
 use Mindy\Helper\Traits\Configurator;
@@ -68,17 +67,58 @@ class Command
      * @var integer the default fetch mode for this command.
      * @see http://www.php.net/manual/en/function.PDOStatement-setFetchMode.php
      */
-    public $fetchMode = \PDO::FETCH_ASSOC;
+    public $fetchMode = PDO::FETCH_ASSOC;
     /**
      * @var array the parameters (name => value) that are bound to the current PDO statement.
-     * This property is maintained by methods such as [[bindValue()]].
-     * Do not modify it directly.
+     * This property is maintained by methods such as [[bindValue()]]. It is mainly provided for logging purpose
+     * and is used to generate [[rawSql]]. Do not modify it directly.
      */
     public $params = [];
+    /**
+     * @var integer the default number of seconds that query results can remain valid in cache.
+     * Use 0 to indicate that the cached data will never expire. And use a negative number to indicate
+     * query cache should not be used.
+     * @see cache()
+     */
+    public $queryCacheDuration;
+    /**
+     * @var \Mindy\Cache\Dependency the dependency to be associated with the cached query result for this command
+     * @see cache()
+     */
+    public $queryCacheDependency;
+    /**
+     * @var array pending parameters to be bound to the current PDO statement.
+     */
+    private $_pendingParams = [];
     /**
      * @var string the SQL statement that this command represents
      */
     private $_sql;
+
+    /**
+     * Enables query cache for this command.
+     * @param integer $duration the number of seconds that query result of this command can remain valid in the cache.
+     * If this is not set, the value of [[Connection::queryCacheDuration]] will be used instead.
+     * Use 0 to indicate that the cached data will never expire.
+     * @param \Mindy\Cache\Dependency $dependency the cache dependency associated with the cached query result.
+     * @return static the command object itself
+     */
+    public function cache($duration = null, $dependency = null)
+    {
+        $this->queryCacheDuration = $duration === null ? $this->db->queryCacheDuration : $duration;
+        $this->queryCacheDependency = $dependency;
+        return $this;
+    }
+
+    /**
+     * Disables query cache for this command.
+     * @return static the command object itself
+     */
+    public function noCache()
+    {
+        $this->queryCacheDuration = -1;
+        return $this;
+    }
 
     /**
      * Returns the SQL statement for this command.
@@ -100,6 +140,7 @@ class Command
         if ($sql !== $this->_sql) {
             $this->cancel();
             $this->_sql = $this->db->quoteSql($sql);
+            $this->_pendingParams = [];
             $this->params = [];
         }
         return $this;
@@ -144,19 +185,33 @@ class Command
      * this may improve performance.
      * For SQL statement with binding parameters, this method is invoked
      * automatically.
+     * @param boolean $forRead whether this method is called for a read query. If null, it means
+     * the SQL statement should be used to determine whether it is for read or write.
      * @throws Exception if there is any DB error
      */
-    public function prepare()
+    public function prepare($forRead = null)
     {
-        if ($this->pdoStatement == null) {
-            $sql = $this->getSql();
-            try {
-                $this->pdoStatement = $this->db->pdo->prepare($sql);
-            } catch (\Exception $e) {
-                $message = $e->getMessage() . "\nFailed to prepare SQL: $sql";
-                $errorInfo = $e instanceof \PDOException ? $e->errorInfo : null;
-                throw new Exception($message, $errorInfo, (int)$e->getCode(), $e);
-            }
+        if ($this->pdoStatement) {
+            $this->bindPendingParams();
+            return;
+        }
+        $sql = $this->getSql();
+        if ($this->db->getTransaction()) {
+            // master is in a transaction. use the same connection.
+            $forRead = false;
+        }
+        if ($forRead || $forRead === null && $this->db->getSchema()->isReadQuery($sql)) {
+            $pdo = $this->db->getSlavePdo();
+        } else {
+            $pdo = $this->db->getMasterPdo();
+        }
+        try {
+            $this->pdoStatement = $pdo->prepare($sql);
+            $this->bindPendingParams();
+        } catch (\Exception $e) {
+            $message = $e->getMessage() . "\nFailed to prepare SQL: $sql";
+            $errorInfo = $e instanceof \PDOException ? $e->errorInfo : null;
+            throw new Exception($message, $errorInfo, (int) $e->getCode(), $e);
         }
     }
 
@@ -200,6 +255,18 @@ class Command
     }
 
     /**
+     * Binds pending parameters that were registered via [[bindValue()]] and [[bindValues()]].
+     * Note that this method requires an active [[pdoStatement]].
+     */
+    protected function bindPendingParams()
+    {
+        foreach ($this->_pendingParams as $name => $value) {
+            $this->pdoStatement->bindValue($name, $value[0], $value[1]);
+        }
+        $this->_pendingParams = [];
+    }
+
+    /**
      * Binds a value to a parameter.
      * @param string|integer $name Parameter identifier. For a prepared statement
      * using named placeholders, this will be a parameter name of
@@ -212,11 +279,10 @@ class Command
      */
     public function bindValue($name, $value, $dataType = null)
     {
-        $this->prepare();
         if ($dataType === null) {
             $dataType = $this->db->getSchema()->getPdoType($value);
         }
-        $this->pdoStatement->bindValue($name, $value, $dataType);
+        $this->_pendingParams[$name] = [$value, $dataType];
         $this->params[$name] = $value;
         return $this;
     }
@@ -234,61 +300,20 @@ class Command
      */
     public function bindValues($values)
     {
-        if (!empty($values)) {
-            $this->prepare();
-            foreach ($values as $name => $value) {
-                if (is_array($value)) {
-                    $type = $value[1];
-                    $value = $value[0];
-                } else {
-                    $type = $this->db->getSchema()->getPdoType($value);
-                }
-                $this->pdoStatement->bindValue($name, $value, $type);
+        if (empty($values)) {
+            return $this;
+        }
+        foreach ($values as $name => $value) {
+            if (is_array($value)) {
+                $this->_pendingParams[$name] = $value;
+                $this->params[$name] = $value[0];
+            } else {
+                $type = $this->db->getSchema()->getPdoType($value);
+                $this->_pendingParams[$name] = [$value, $type];
                 $this->params[$name] = $value;
             }
         }
         return $this;
-    }
-
-    /**
-     * Executes the SQL statement.
-     * This method should only be used for executing non-query SQL statement, such as `INSERT`, `DELETE`, `UPDATE` SQLs.
-     * No result set will be returned.
-     * @return integer number of rows affected by the execution.
-     * @throws Exception execution failed
-     */
-    public function execute()
-    {
-        $sql = $this->getSql();
-
-        $rawSql = $this->getRawSql();
-
-        // TODO Yii::info($rawSql, __METHOD__);
-
-        if ($sql == '') {
-            return 0;
-        }
-
-        $token = $rawSql;
-        try {
-            // TODO Yii::beginProfile($token, __METHOD__);
-
-            $this->prepare();
-            $this->pdoStatement->execute();
-            $n = $this->pdoStatement->rowCount();
-
-            // TODO Yii::endProfile($token, __METHOD__);
-            return $n;
-        } catch (\Exception $e) {
-            // TODO Yii::endProfile($token, __METHOD__);
-            if ($e instanceof Exception) {
-                throw $e;
-            } else {
-                $message = $e->getMessage() . "\nThe SQL being executed was: $rawSql";
-                $errorInfo = $e instanceof \PDOException ? $e->errorInfo : null;
-                throw new Exception($message, $errorInfo, (int)$e->getCode(), $e);
-            }
-        }
     }
 
     /**
@@ -332,7 +357,7 @@ class Command
     /**
      * Executes the SQL statement and returns the value of the first column in the first row of data.
      * This method is best used when only a single value is needed for a query.
-     * @return string|boolean the value of the first column in the first row of the query result.
+     * @return string|null|boolean the value of the first column in the first row of the query result.
      * False is returned if there is no value.
      * @throws Exception execution failed
      */
@@ -359,81 +384,11 @@ class Command
     }
 
     /**
-     * Performs the actual DB query of a SQL statement.
-     * @param string $method method of PDOStatement to be called
-     * @param integer $fetchMode the result fetch mode. Please refer to [PHP manual](http://www.php.net/manual/en/function.PDOStatement-setFetchMode.php)
-     * for valid fetch modes. If this parameter is null, the value set in [[fetchMode]] will be used.
-     * @return mixed the method execution result
-     * @throws Exception if the query causes any problem
-     */
-    private function queryInternal($method, $fetchMode = null)
-    {
-        $db = $this->db;
-        $rawSql = $this->getRawSql();
-        // TODO Yii::info($rawSql, 'yii\db\Command::query');
-
-        /** @var \Mindy\Cache\Cache $cache */
-        if ($db->enableQueryCache && $method !== '') {
-            // TODO $cache = is_string($db->queryCache) ? Yii::$app->getComponent($db->queryCache) : $db->queryCache;
-        }
-
-        if (isset($cache) && $cache instanceof Cache) {
-            $cacheKey = [
-                __CLASS__,
-                $method,
-                $db->dsn,
-                $db->username,
-                $rawSql,
-            ];
-            if (($result = $cache->get($cacheKey)) !== false) {
-                // TODO Yii::trace('Query result served from cache', 'yii\db\Command::query');
-                return $result;
-            }
-        }
-
-        $token = $rawSql;
-        try {
-            // TODO Yii::beginProfile($token, 'yii\db\Command::query');
-
-            $this->prepare();
-            $this->pdoStatement->execute();
-
-            if ($method === '') {
-                $result = new DataReader($this);
-            } else {
-                if ($fetchMode === null) {
-                    $fetchMode = $this->fetchMode;
-                }
-                $result = call_user_func_array([$this->pdoStatement, $method], (array)$fetchMode);
-                $this->pdoStatement->closeCursor();
-            }
-
-            // TODO Yii::endProfile($token, 'yii\db\Command::query');
-
-            if (isset($cache, $cacheKey) && $cache instanceof Cache) {
-                $cache->set($cacheKey, $result, $db->queryCacheDuration, $db->queryCacheDependency);
-                // TODO Yii::trace('Saved query result in cache', 'yii\db\Command::query');
-            }
-
-            return $result;
-        } catch (\Exception $e) {
-            // TODO Yii::endProfile($token, 'yii\db\Command::query');
-            if ($e instanceof Exception) {
-                throw $e;
-            } else {
-                $message = $e->getMessage() . "\nThe SQL being executed was: $rawSql";
-                $errorInfo = $e instanceof \PDOException ? $e->errorInfo : null;
-                throw new Exception($message, $errorInfo, (int)$e->getCode(), $e);
-            }
-        }
-    }
-
-    /**
      * Creates an INSERT command.
      * For example,
      *
      * ~~~
-     * $connection->createCommand()->insert('tbl_user', [
+     * $connection->createCommand()->insert('user', [
      *     'name' => 'Sam',
      *     'age' => 30,
      * ])->execute();
@@ -459,7 +414,7 @@ class Command
      * For example,
      *
      * ~~~
-     * $connection->createCommand()->batchInsert('tbl_user', ['name', 'age'], [
+     * $connection->createCommand()->batchInsert('user', ['name', 'age'], [
      *     ['Tom', 30],
      *     ['Jane', 20],
      *     ['Linda', 25],
@@ -484,7 +439,7 @@ class Command
      * For example,
      *
      * ~~~
-     * $connection->createCommand()->update('tbl_user', ['status' => 1], 'age > 30')->execute();
+     * $connection->createCommand()->update('user', ['status' => 1], 'age > 30')->execute();
      * ~~~
      *
      * The method will properly escape the column names and bind the values to be updated.
@@ -509,7 +464,7 @@ class Command
      * For example,
      *
      * ~~~
-     * $connection->createCommand()->delete('tbl_user', 'status = 0')->execute();
+     * $connection->createCommand()->delete('user', 'status = 0')->execute();
      * ~~~
      *
      * The method will properly escape the table and column names.
@@ -528,7 +483,6 @@ class Command
         return $this->setSql($sql)->bindValues($params);
     }
 
-
     /**
      * Creates a SQL command for creating a new DB table.
      *
@@ -545,12 +499,11 @@ class Command
      * @param string $table the name of the table to be created. The name will be properly quoted by the method.
      * @param array $columns the columns (name => definition) in the new table.
      * @param string $options additional SQL fragment that will be appended to the generated SQL.
-     * @param bool $ifNotExists additional SQL fragment IF NOT EXISTS that will be appended after CREATE TABLE.
      * @return Command the command object itself
      */
-    public function createTable($table, $columns, $options = null, $ifNotExists = false)
+    public function createTable($table, $columns, $options = null)
     {
-        $sql = $this->db->getQueryBuilder()->createTable($table, $columns, $options, $ifNotExists);
+        $sql = $this->db->getQueryBuilder()->createTable($table, $columns, $options);
         return $this->setSql($sql);
     }
 
@@ -674,9 +627,9 @@ class Command
      * The method will properly quote the table and column names.
      * @param string $name the name of the foreign key constraint.
      * @param string $table the table that the foreign key constraint will be added to.
-     * @param string $columns the name of the column to that the constraint will be added on. If there are multiple columns, separate them with commas.
+     * @param string|array $columns the name of the column to that the constraint will be added on. If there are multiple columns, separate them with commas.
      * @param string $refTable the table that the foreign key references to.
-     * @param string $refColumns the name of the column that the foreign key references to. If there are multiple columns, separate them with commas.
+     * @param string|array $refColumns the name of the column that the foreign key references to. If there are multiple columns, separate them with commas.
      * @param string $delete the ON DELETE option. Most DBMS support these options: RESTRICT, CASCADE, NO ACTION, SET DEFAULT, SET NULL
      * @param string $update the ON UPDATE option. Most DBMS support these options: RESTRICT, CASCADE, NO ACTION, SET DEFAULT, SET NULL
      * @return Command the command object itself
@@ -703,7 +656,7 @@ class Command
      * Creates a SQL command for creating a new index.
      * @param string $name the name of the index. The name will be properly quoted by the method.
      * @param string $table the table that the new index will be created for. The table name will be properly quoted by the method.
-     * @param string $columns the column(s) that should be included in the index. If there are multiple columns, please separate them
+     * @param string|array $columns the column(s) that should be included in the index. If there are multiple columns, please separate them
      * by commas. The column names will be properly quoted by the method.
      * @param boolean $unique whether to add UNIQUE constraint on the created index.
      * @return Command the command object itself
@@ -755,5 +708,106 @@ class Command
     {
         $sql = $this->db->getQueryBuilder()->checkIntegrity($check, $schema, $table);
         return $this->setSql($sql);
+    }
+
+    /**
+     * Executes the SQL statement.
+     * This method should only be used for executing non-query SQL statement, such as `INSERT`, `DELETE`, `UPDATE` SQLs.
+     * No result set will be returned.
+     * @return integer number of rows affected by the execution.
+     * @throws Exception execution failed
+     */
+    public function execute()
+    {
+        $sql = $this->getSql();
+        $rawSql = $this->getRawSql();
+        $this->getLogger()->info($rawSql, ['method' => __METHOD__]);
+        if ($sql == '') {
+            return 0;
+        }
+        $this->prepare(false);
+        $token = $rawSql;
+        try {
+            $this->getLogger()->beginProfile($token, __METHOD__);
+            $this->pdoStatement->execute();
+            $n = $this->pdoStatement->rowCount();
+            $this->getLogger()->endProfile($token, __METHOD__);
+            return $n;
+        } catch (\Exception $e) {
+            $this->getLogger()->endProfile($token, __METHOD__);
+            throw $this->db->getSchema()->convertException($e, $rawSql);
+        }
+    }
+
+    /**
+     * Performs the actual DB query of a SQL statement.
+     * @param string $method method of PDOStatement to be called
+     * @param integer $fetchMode the result fetch mode. Please refer to [PHP manual](http://www.php.net/manual/en/function.PDOStatement-setFetchMode.php)
+     * for valid fetch modes. If this parameter is null, the value set in [[fetchMode]] will be used.
+     * @return mixed the method execution result
+     * @throws Exception if the query causes any problem
+     * @since 2.0.1 this method is protected (was private before).
+     */
+    protected function queryInternal($method, $fetchMode = null)
+    {
+        $rawSql = $this->getRawSql();
+        $this->getLogger()->info($rawSql, ['method' => __METHOD__]);
+        if ($method !== '') {
+            $info = $this->db->getQueryCacheInfo($this->queryCacheDuration, $this->queryCacheDependency);
+            if (is_array($info)) {
+                /* @var $cache \Mindy\Cache\Cache */
+                $cache = $info[0];
+                $cacheKey = [
+                    __CLASS__,
+                    $method,
+                    $fetchMode,
+                    $this->db->dsn,
+                    $this->db->username,
+                    $rawSql,
+                ];
+                if (($result = $cache->get($cacheKey)) !== false) {
+                    $this->getLogger()->debug('Query result served from cache', ['method' => __METHOD__]);
+                    return $result;
+                }
+            }
+        }
+        $this->prepare(true);
+        $token = $rawSql;
+        try {
+            $this->getLogger()->beginProfile($token, __METHOD__);
+            $this->pdoStatement->execute();
+            if ($method === '') {
+                $result = new DataReader($this);
+            } else {
+                if ($fetchMode === null) {
+                    $fetchMode = $this->fetchMode;
+                }
+                $result = call_user_func_array([$this->pdoStatement, $method], (array) $fetchMode);
+                $this->pdoStatement->closeCursor();
+            }
+            $this->getLogger()->endProfile($token, __METHOD__);
+        // TODO replace \Exception to Exception and show failed tests in `testQuery`
+        } catch (\Exception $e) {
+            $this->getLogger()->endProfile($token, __METHOD__);
+            throw $this->db->getSchema()->convertException($e, $rawSql);
+        }
+        if (isset($cache, $cacheKey, $info)) {
+            $cache->set($cacheKey, $result, $info[1], $info[2]);
+            $this->getLogger()->debug('Saved query result in cache', ['method' => __METHOD__]);
+        }
+        return $result;
+    }
+
+    protected function getLogger()
+    {
+        static $logger;
+        if ($logger === null) {
+            if (class_exists('\Mindy\Base\Mindy')) {
+                $logger = \Mindy\Base\Mindy::app()->logger;
+            } else {
+                $logger = new \Mindy\Logger\LoggerManager;
+            }
+        }
+        return $logger;
     }
 }

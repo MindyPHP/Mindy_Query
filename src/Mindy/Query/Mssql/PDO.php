@@ -51,11 +51,33 @@ class PDO extends \PDO
     /**
      * Rollbacks a transaction. It is necessary to override PDO's method as MSSQL PDO driver does not
      * natively support transactions.
-     * @return boolean the result of a transaction rollback.
+     * @return boolean the result of a transaction roll back.
      */
     public function rollBack()
     {
         $this->exec('ROLLBACK TRANSACTION');
         return true;
+    }
+
+    /**
+     * Retrieve a database connection attribute.
+     * It is necessary to override PDO's method as some MSSQL PDO driver (e.g. dblib) does not
+     * support getting attributes
+     * @param integer $attribute One of the PDO::ATTR_* constants.
+     * @return mixed A successful call returns the value of the requested PDO attribute.
+     * An unsuccessful call returns null.
+     */
+    public function getAttribute($attribute)
+    {
+        try {
+            return parent::getAttribute($attribute);
+        } catch (\PDOException $e) {
+            switch ($attribute) {
+                case PDO::ATTR_SERVER_VERSION:
+                    return $this->query("SELECT CAST(SERVERPROPERTY('productversion') AS VARCHAR)")->fetchColumn();
+                default:
+                    throw $e;
+            }
+        }
     }
 }

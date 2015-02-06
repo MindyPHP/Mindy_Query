@@ -121,13 +121,13 @@ class QueryBuilder extends \Mindy\Query\QueryBuilder
                 $key = reset($table->primaryKey);
                 $value = $this->db->createCommand("SELECT MAX(`$key`) FROM $tableName")->queryScalar() + 1;
             } else {
-                $value = (int)$value;
+                $value = (int) $value;
             }
             return "ALTER TABLE $tableName AUTO_INCREMENT=$value";
         } elseif ($table === null) {
             throw new InvalidParamException("Table not found: $tableName");
         } else {
-            throw new InvalidParamException("There is not sequence associated with table '$tableName'.");
+            throw new InvalidParamException("There is no sequence associated with table '$tableName'.");
         }
     }
 
@@ -149,16 +149,16 @@ class QueryBuilder extends \Mindy\Query\QueryBuilder
     public function buildLimit($limit, $offset)
     {
         $sql = '';
-        // limit is not optional in MySQL
-        // http://stackoverflow.com/a/271650/1106908
-        // http://dev.mysql.com/doc/refman/5.0/en/select.html#idm47619502796240
-        if ($limit !== null && $limit >= 0) {
-            $sql = 'LIMIT ' . (int)$limit;
-            if ($offset > 0) {
-                $sql .= ' OFFSET ' . (int)$offset;
+        if ($this->hasLimit($limit)) {
+            $sql = 'LIMIT ' . $limit;
+            if ($this->hasOffset($offset)) {
+                $sql .= ' OFFSET ' . $offset;
             }
-        } elseif ($offset > 0) {
-            $sql = 'LIMIT ' . (int)$offset . ', 18446744073709551615'; // 2^64-1
+        } elseif ($this->hasOffset($offset)) {
+            // limit is not optional in MySQL
+            // http://stackoverflow.com/a/271650/1106908
+            // http://dev.mysql.com/doc/refman/5.0/en/select.html#idm47619502796240
+            $sql = "LIMIT $offset, 18446744073709551615"; // 2^64-1
         }
         return $sql;
     }

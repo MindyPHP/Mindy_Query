@@ -7,7 +7,7 @@ use Mindy\Query\Query;
  * @group db
  * @group mysql
  */
-class QueryTest extends DatabaseTestCase
+abstract class QueryTest extends DatabaseTestCase
 {
     public function testSelect()
     {
@@ -28,8 +28,8 @@ class QueryTest extends DatabaseTestCase
     public function testFrom()
     {
         $query = new Query;
-        $query->from('tbl_user');
-        $this->assertEquals(['tbl_user'], $query->from);
+        $query->from('user');
+        $this->assertEquals(['user'], $query->from);
     }
 
     public function testWhere()
@@ -110,27 +110,5 @@ class QueryTest extends DatabaseTestCase
 
     public function testUnion()
     {
-    }
-
-    public function testOne()
-    {
-        $result = (new Query())->using('sqlite')->from('tbl_customer')->where(['status' => 2])->one();
-        $this->assertEquals('user3', $result['name']);
-
-        $result = (new Query())->using('sqlite')->from('tbl_customer')->where(['status' => 3])->one();
-        $this->assertFalse($result);
-    }
-
-    /**
-     * Issue #11
-     * https://github.com/studio107/Mindy_Query/issues/11
-     */
-    public function testUpdate()
-    {
-        $query = new Query();
-        $query->using('sqlite')->from('tbl_customer')->where(['id' => 1]);
-        $command = $query->createCommand();
-        $command->update('tbl_customer', ['status' => 2], $query->where, $query->params);
-        $this->assertEquals('UPDATE `tbl_customer` SET `status`=2 WHERE `id`=1', $command->getRawSql());
     }
 }

@@ -6,5 +6,5 @@
  */
 class CubridQueryTest extends QueryTest
 {
-	public $driverName = 'cubrid';
+    public $driverName = 'cubrid';
 }

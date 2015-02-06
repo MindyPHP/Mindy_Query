@@ -18,15 +18,14 @@ use Mindy\Query\ColumnSchema;
 class Schema extends \Mindy\Query\Schema
 {
     /**
-     * Default schema name to be used.
+     * @var string the default schema used for the current session.
      */
-    const DEFAULT_SCHEMA = 'dbo';
-
+    public $defaultSchema = 'dbo';
     /**
      * @var array mapping from physical column types (keys) to abstract column types (values)
      */
     public $typeMap = [
-        // exact numerics
+        // exact numbers
         'bigint' => self::TYPE_BIGINT,
         'numeric' => self::TYPE_DECIMAL,
         'bit' => self::TYPE_SMALLINT,
@@ -36,11 +35,9 @@ class Schema extends \Mindy\Query\Schema
         'int' => self::TYPE_INTEGER,
         'tinyint' => self::TYPE_SMALLINT,
         'money' => self::TYPE_MONEY,
-
-        // approximate numerics
+        // approximate numbers
         'float' => self::TYPE_FLOAT,
         'real' => self::TYPE_FLOAT,
-
         // date and time
         'date' => self::TYPE_DATE,
         'datetimeoffset' => self::TYPE_DATETIME,
@@ -48,22 +45,18 @@ class Schema extends \Mindy\Query\Schema
         'smalldatetime' => self::TYPE_DATETIME,
         'datetime' => self::TYPE_DATETIME,
         'time' => self::TYPE_TIME,
-
         // character strings
         'char' => self::TYPE_STRING,
         'varchar' => self::TYPE_STRING,
         'text' => self::TYPE_TEXT,
-
         // unicode character strings
         'nchar' => self::TYPE_STRING,
         'nvarchar' => self::TYPE_STRING,
         'ntext' => self::TYPE_TEXT,
-
         // binary strings
         'binary' => self::TYPE_BINARY,
         'varbinary' => self::TYPE_BINARY,
         'image' => self::TYPE_BINARY,
-
         // other data types
         // 'cursor' type cannot be used with tables
         'timestamp' => self::TYPE_TIMESTAMP,
@@ -73,6 +66,30 @@ class Schema extends \Mindy\Query\Schema
         'xml' => self::TYPE_STRING,
         'table' => self::TYPE_STRING,
     ];
+
+    /**
+     * @inheritdoc
+     */
+    public function createSavepoint($name)
+    {
+        $this->db->createCommand("SAVE TRANSACTION $name")->execute();
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function releaseSavepoint($name)
+    {
+        // does nothing as MSSQL does not support this
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function rollBackSavepoint($name)
+    {
+        $this->db->createCommand("ROLLBACK TRANSACTION $name")->execute();
+    }
 
     /**
      * Quotes a table name for use in a query.
@@ -137,14 +154,16 @@ class Schema extends \Mindy\Query\Schema
             $table->catalogName = $parts[0];
             $table->schemaName = $parts[1];
             $table->name = $parts[2];
+            $table->fullName = $table->catalogName . '.' . $table->schemaName . '.' . $table->name;
         } elseif ($partCount == 2) {
             // only schema name and table name passed
             $table->schemaName = $parts[0];
             $table->name = $parts[1];
+            $table->fullName = $table->schemaName !== $this->defaultSchema ? $table->schemaName . '.' . $table->name : $table->name;
         } else {
-            // only schema name passed
-            $table->schemaName = static::DEFAULT_SCHEMA;
-            $table->name = $parts[0];
+            // only table name passed
+            $table->schemaName = $this->defaultSchema;
+            $table->fullName = $table->name = $parts[0];
         }
     }
 
@@ -155,8 +174,7 @@ class Schema extends \Mindy\Query\Schema
      */
     protected function loadColumnSchema($info)
     {
-        $column = new ColumnSchema();
-
+        $column = $this->createColumnSchema();
         $column->name = $info['column_name'];
         $column->allowNull = $info['is_nullable'] == 'YES';
         $column->dbType = $info['data_type'];
@@ -165,7 +183,6 @@ class Schema extends \Mindy\Query\Schema
         $column->autoIncrement = $info['is_identity'] == 1;
         $column->unsigned = stripos($column->dbType, 'unsigned') !== false;
         $column->comment = $info['comment'] === null ? '' : $info['comment'];
-
         $column->type = self::TYPE_STRING;
         if (preg_match('/^(\w+)(?:\(([^\)]+)\))?/', $column->dbType, $matches)) {
             $type = $matches[1];
@@ -174,9 +191,9 @@ class Schema extends \Mindy\Query\Schema
             }
             if (!empty($matches[2])) {
                 $values = explode(',', $matches[2]);
-                $column->size = $column->precision = (int)$values[0];
+                $column->size = $column->precision = (int) $values[0];
                 if (isset($values[1])) {
-                    $column->scale = (int)$values[1];
+                    $column->scale = (int) $values[1];
                 }
                 if ($column->size === 1 && ($type === 'tinyint' || $type === 'bit')) {
                     $column->type = 'boolean';
@@ -189,16 +206,13 @@ class Schema extends \Mindy\Query\Schema
                 }
             }
         }
-
         $column->phpType = $this->getColumnPhpType($column);
-
         if ($info['column_default'] == '(NULL)') {
             $info['column_default'] = null;
         }
-        if ($column->type !== 'timestamp' || $info['column_default'] !== 'CURRENT_TIMESTAMP') {
-            $column->defaultValue = $column->typecast($info['column_default']);
+        if (!$column->isPrimaryKey && ($column->type !== 'timestamp' || $info['column_default'] !== 'CURRENT_TIMESTAMP')) {
+            $column->defaultValue = $column->phpTypecast($info['column_default']);
         }
-
         return $column;
     }
 
@@ -209,7 +223,7 @@ class Schema extends \Mindy\Query\Schema
      */
     protected function findColumns($table)
     {
-        $columnsTableName = 'information_schema.columns';
+        $columnsTableName = 'INFORMATION_SCHEMA.COLUMNS';
         $whereSql = "[t1].[table_name] = '{$table->name}'";
         if ($table->catalogName !== null) {
             $columnsTableName = "{$table->catalogName}.{$columnsTableName}";
@@ -219,24 +233,25 @@ class Schema extends \Mindy\Query\Schema
             $whereSql .= " AND [t1].[table_schema] = '{$table->schemaName}'";
         }
         $columnsTableName = $this->quoteTableName($columnsTableName);
-
         $sql = <<<SQL
 SELECT
-	[t1].[column_name], [t1].[is_nullable], [t1].[data_type], [t1].[column_default],
-	COLUMNPROPERTY(OBJECT_ID([t1].[table_schema] + '.' + [t1].[table_name]), [t1].[column_name], 'IsIdentity') AS is_identity,
-	CONVERT(VARCHAR, [t2].[value]) AS comment
+    [t1].[column_name], [t1].[is_nullable], [t1].[data_type], [t1].[column_default],
+    COLUMNPROPERTY(OBJECT_ID([t1].[table_schema] + '.' + [t1].[table_name]), [t1].[column_name], 'IsIdentity') AS is_identity,
+    CONVERT(VARCHAR, [t2].[value]) AS comment
 FROM {$columnsTableName} AS [t1]
 LEFT OUTER JOIN [sys].[extended_properties] AS [t2] ON
-	[t1].[ordinal_position] = [t2].[minor_id] AND
-	OBJECT_NAME([t2].[major_id]) = [t1].[table_name] AND
-	[t2].[class] = 1 AND
-	[t2].[class_desc] = 'OBJECT_OR_COLUMN' AND
-	[t2].[name] = 'MS_Description'
+    [t2].[minor_id] = COLUMNPROPERTY(OBJECT_ID([t1].[TABLE_SCHEMA] + '.' + [t1].[TABLE_NAME]), [t1].[COLUMN_NAME], 'ColumnID') AND
+    OBJECT_NAME([t2].[major_id]) = [t1].[table_name] AND
+    [t2].[class] = 1 AND
+    [t2].[class_desc] = 'OBJECT_OR_COLUMN' AND
+    [t2].[name] = 'MS_Description'
 WHERE {$whereSql}
 SQL;
-
         try {
             $columns = $this->db->createCommand($sql)->queryAll();
+            if (empty($columns)) {
+                return false;
+            }
         } catch (\Exception $e) {
             return false;
         }
@@ -262,28 +277,26 @@ SQL;
      */
     protected function findPrimaryKeys($table)
     {
-        $keyColumnUsageTableName = 'information_schema.key_column_usage';
-        $tableConstraintsTableName = 'information_schema.table_constraints';
+        $keyColumnUsageTableName = 'INFORMATION_SCHEMA.KEY_COLUMN_USAGE';
+        $tableConstraintsTableName = 'INFORMATION_SCHEMA.TABLE_CONSTRAINTS';
         if ($table->catalogName !== null) {
             $keyColumnUsageTableName = $table->catalogName . '.' . $keyColumnUsageTableName;
             $tableConstraintsTableName = $table->catalogName . '.' . $tableConstraintsTableName;
         }
         $keyColumnUsageTableName = $this->quoteTableName($keyColumnUsageTableName);
         $tableConstraintsTableName = $this->quoteTableName($tableConstraintsTableName);
-
         $sql = <<<SQL
 SELECT
-	[kcu].[column_name] AS [field_name]
+    [kcu].[column_name] AS [field_name]
 FROM {$keyColumnUsageTableName} AS [kcu]
 LEFT JOIN {$tableConstraintsTableName} AS [tc] ON
-	[kcu].[table_name] = [tc].[table_name] AND
-	[kcu].[constraint_name] = [tc].[constraint_name]
+    [kcu].[table_name] = [tc].[table_name] AND
+    [kcu].[constraint_name] = [tc].[constraint_name]
 WHERE
-	[tc].[constraint_type] = 'PRIMARY KEY' AND
-	[kcu].[table_name] = :tableName AND
-	[kcu].[table_schema] = :schemaName
+    [tc].[constraint_type] = 'PRIMARY KEY' AND
+    [kcu].[table_name] = :tableName AND
+    [kcu].[table_schema] = :schemaName
 SQL;
-
         $table->primaryKey = $this->db
             ->createCommand($sql, [':tableName' => $table->name, ':schemaName' => $table->schemaName])
             ->queryColumn();
@@ -295,35 +308,33 @@ SQL;
      */
     protected function findForeignKeys($table)
     {
-        $referentialConstraintsTableName = 'information_schema.referential_constraints';
-        $keyColumnUsageTableName = 'information_schema.key_column_usage';
+        $referentialConstraintsTableName = 'INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS';
+        $keyColumnUsageTableName = 'INFORMATION_SCHEMA.KEY_COLUMN_USAGE';
         if ($table->catalogName !== null) {
             $referentialConstraintsTableName = $table->catalogName . '.' . $referentialConstraintsTableName;
             $keyColumnUsageTableName = $table->catalogName . '.' . $keyColumnUsageTableName;
         }
         $referentialConstraintsTableName = $this->quoteTableName($referentialConstraintsTableName);
         $keyColumnUsageTableName = $this->quoteTableName($keyColumnUsageTableName);
-
         // please refer to the following page for more details:
         // http://msdn2.microsoft.com/en-us/library/aa175805(SQL.80).aspx
         $sql = <<<SQL
 SELECT
-	[kcu1].[column_name] AS [fk_column_name],
-	[kcu2].[table_name] AS [uq_table_name],
-	[kcu2].[column_name] AS [uq_column_name]
+    [kcu1].[column_name] AS [fk_column_name],
+    [kcu2].[table_name] AS [uq_table_name],
+    [kcu2].[column_name] AS [uq_column_name]
 FROM {$referentialConstraintsTableName} AS [rc]
 JOIN {$keyColumnUsageTableName} AS [kcu1] ON
-	[kcu1].[constraint_catalog] = [rc].[constraint_catalog] AND
-	[kcu1].[constraint_schema] = [rc].[constraint_schema] AND
-	[kcu1].[constraint_name] = [rc].[constraint_name]
+    [kcu1].[constraint_catalog] = [rc].[constraint_catalog] AND
+    [kcu1].[constraint_schema] = [rc].[constraint_schema] AND
+    [kcu1].[constraint_name] = [rc].[constraint_name]
 JOIN {$keyColumnUsageTableName} AS [kcu2] ON
-	[kcu2].[constraint_catalog] = [rc].[constraint_catalog] AND
-	[kcu2].[constraint_schema] = [rc].[constraint_schema] AND
-	[kcu2].[constraint_name] = [rc].[constraint_name] AND
-	[kcu2].[ordinal_position] = [kcu1].[ordinal_position]
+    [kcu2].[constraint_catalog] = [rc].[constraint_catalog] AND
+    [kcu2].[constraint_schema] = [rc].[constraint_schema] AND
+    [kcu2].[constraint_name] = [rc].[unique_constraint_name] AND
+    [kcu2].[ordinal_position] = [kcu1].[ordinal_position]
 WHERE [kcu1].[table_name] = :tableName
 SQL;
-
         $rows = $this->db->createCommand($sql, [':tableName' => $table->name])->queryAll();
         $table->foreignKeys = [];
         foreach ($rows as $row) {
@@ -339,15 +350,13 @@ SQL;
     protected function findTableNames($schema = '')
     {
         if ($schema === '') {
-            $schema = static::DEFAULT_SCHEMA;
+            $schema = $this->defaultSchema;
         }
-
         $sql = <<<SQL
-SELECT [t].[table]
-FROM [information_schema].[tables] AS [t]
+SELECT [t].[table_name]
+FROM [INFORMATION_SCHEMA].[TABLES] AS [t]
 WHERE [t].[table_schema] = :schema AND [t].[table_type] = 'BASE TABLE'
 SQL;
-
         return $this->db->createCommand($sql, [':schema' => $schema])->queryColumn();
     }
 }

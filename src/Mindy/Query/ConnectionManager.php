@@ -69,4 +69,9 @@ class ConnectionManager
     {
         self::$defaultDatabase = $name;
     }
+
+    public static function setDb($name, Connection $db)
+    {
+        self::$_databases[$name] = $db;
+    }
 }

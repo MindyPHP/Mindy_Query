@@ -18,7 +18,6 @@ use Mindy\Exception\InvalidParamException;
  */
 class QueryBuilder extends \Mindy\Query\QueryBuilder
 {
-
     /**
      * @var array mapping from abstract column types (keys) to physical column types (values).
      */
@@ -32,13 +31,37 @@ class QueryBuilder extends \Mindy\Query\QueryBuilder
         Schema::TYPE_BIGINT => 'bigint',
         Schema::TYPE_FLOAT => 'double precision',
         Schema::TYPE_DECIMAL => 'numeric(10,0)',
-        Schema::TYPE_DATETIME => 'timestamp',
-        Schema::TYPE_TIMESTAMP => 'timestamp',
-        Schema::TYPE_TIME => 'time',
+        Schema::TYPE_DATETIME => 'timestamp(0)',
+        Schema::TYPE_TIMESTAMP => 'timestamp(0)',
+        Schema::TYPE_TIME => 'time(0)',
         Schema::TYPE_DATE => 'date',
         Schema::TYPE_BINARY => 'bytea',
         Schema::TYPE_BOOLEAN => 'boolean',
         Schema::TYPE_MONEY => 'numeric(19,4)',
+    ];
+
+    /**
+     * @var array map of query condition to builder methods.
+     * These methods are used by [[buildCondition]] to build SQL conditions from array syntax.
+     */
+    protected $conditionBuilders = [
+        'NOT' => 'buildNotCondition',
+        'AND' => 'buildAndCondition',
+        'OR' => 'buildAndCondition',
+        'BETWEEN' => 'buildBetweenCondition',
+        'NOT BETWEEN' => 'buildBetweenCondition',
+        'IN' => 'buildInCondition',
+        'NOT IN' => 'buildInCondition',
+        'LIKE' => 'buildLikeCondition',
+        'ILIKE' => 'buildLikeCondition',
+        'NOT LIKE' => 'buildLikeCondition',
+        'NOT ILIKE' => 'buildLikeCondition',
+        'OR LIKE' => 'buildLikeCondition',
+        'OR ILIKE' => 'buildLikeCondition',
+        'OR NOT LIKE' => 'buildLikeCondition',
+        'OR NOT ILIKE' => 'buildLikeCondition',
+        'EXISTS' => 'buildExistsCondition',
+        'NOT EXISTS' => 'buildExistsCondition',
     ];
 
     /**
@@ -77,18 +100,14 @@ class QueryBuilder extends \Mindy\Query\QueryBuilder
     {
         $table = $this->db->getTableSchema($tableName);
         if ($table !== null && $table->sequenceName !== null) {
-            $sequence = '"' . $table->sequenceName . '"';
-
-            if (strpos($sequence, '.') !== false) {
-                $sequence = str_replace('.', '"."', $sequence);
-            }
-
+            // c.f. http://www.postgresql.org/docs/8.1/static/functions-sequence.html
+            $sequence = $this->db->quoteTableName($table->sequenceName);
             $tableName = $this->db->quoteTableName($tableName);
             if ($value === null) {
                 $key = reset($table->primaryKey);
                 $value = "(SELECT COALESCE(MAX(\"{$key}\"),0) FROM {$tableName})+1";
             } else {
-                $value = (int)$value;
+                $value = (int) $value;
             }
             return "SELECT SETVAL('$sequence',$value,false)";
         } elseif ($table === null) {
@@ -108,17 +127,15 @@ class QueryBuilder extends \Mindy\Query\QueryBuilder
     public function checkIntegrity($check = true, $schema = '', $table = '')
     {
         $enable = $check ? 'ENABLE' : 'DISABLE';
-        $schema = $schema ? $schema : $this->db->schema->defaultSchema;
-        $tableNames = $table ? [$table] : $this->db->schema->getTableNames($schema);
+        $schema = $schema ? $schema : $this->db->getSchema()->defaultSchema;
+        $tableNames = $table ? [$table] : $this->db->getSchema()->getTableNames($schema);
         $command = '';
-
         foreach ($tableNames as $tableName) {
             $tableName = '"' . $schema . '"."' . $tableName . '"';
             $command .= "ALTER TABLE $tableName $enable TRIGGER ALL; ";
         }
-
-        #enable to have ability to alter several tables
-        $this->db->pdo->setAttribute(\PDO::ATTR_EMULATE_PREPARES, true);
+        // enable to have ability to alter several tables
+        $this->db->getMasterPdo()->setAttribute(\PDO::ATTR_EMULATE_PREPARES, true);
         return $command;
     }
 
@@ -129,13 +146,55 @@ class QueryBuilder extends \Mindy\Query\QueryBuilder
      * @param string $type the new column type. The [[getColumnType()]] method will be invoked to convert abstract
      * column type (if any) into the physical one. Anything that is not recognized as abstract type will be kept
      * in the generated SQL. For example, 'string' will be turned into 'varchar(255)', while 'string not null'
-     * will become 'varchar(255) not null'.
+     * will become 'varchar(255) not null'. You can also use PostgreSQL-specific syntax such as `SET NOT NULL`.
      * @return string the SQL statement for changing the definition of a column.
      */
     public function alterColumn($table, $column, $type)
     {
+        // https://github.com/yiisoft/yii2/issues/4492
+        // http://www.postgresql.org/docs/9.1/static/sql-altertable.html
+        if (!preg_match('/^(DROP|SET|RESET)\s+/i', $type)) {
+            $type = 'TYPE ' . $this->getColumnType($type);
+        }
         return 'ALTER TABLE ' . $this->db->quoteTableName($table) . ' ALTER COLUMN '
-        . $this->db->quoteColumnName($column) . ' TYPE '
-        . $this->getColumnType($type);
+        . $this->db->quoteColumnName($column) . ' ' . $type;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function batchInsert($table, $columns, $rows)
+    {
+        $schema = $this->db->getSchema();
+        if (($tableSchema = $schema->getTableSchema($table)) !== null) {
+            $columnSchemas = $tableSchema->columns;
+        } else {
+            $columnSchemas = [];
+        }
+        $values = [];
+        foreach ($rows as $row) {
+            $vs = [];
+            foreach ($row as $i => $value) {
+                if (!is_array($value) && isset($columnSchemas[$columns[$i]])) {
+                    $value = $columnSchemas[$columns[$i]]->dbTypecast($value);
+                }
+                if (is_string($value)) {
+                    $value = $schema->quoteValue($value);
+                } elseif ($value === true) {
+                    $value = 'TRUE';
+                } elseif ($value === false) {
+                    $value = 'FALSE';
+                } elseif ($value === null) {
+                    $value = 'NULL';
+                }
+                $vs[] = $value;
+            }
+            $values[] = '(' . implode(', ', $vs) . ')';
+        }
+        foreach ($columns as $i => $name) {
+            $columns[$i] = $schema->quoteColumnName($name);
+        }
+        return 'INSERT INTO ' . $schema->quoteTableName($table)
+        . ' (' . implode(', ', $columns) . ') VALUES ' . implode(', ', $values);
     }
 }

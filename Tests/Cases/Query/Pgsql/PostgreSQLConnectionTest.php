@@ -1,4 +1,5 @@
 <?php
+use Mindy\Query\Transaction;
 
 /**
  * @group db
@@ -10,7 +11,7 @@ class PostgreSQLConnectionTest extends ConnectionTest
 
     public function testConnection()
     {
-        $connection = $this->getConnection(true);
+        $this->getConnection(true);
     }
 
     public function testQuoteValue()
@@ -44,5 +45,25 @@ class PostgreSQLConnectionTest extends ConnectionTest
         $this->assertEquals('[[column]]', $connection->quoteColumnName('[[column]]'));
         $this->assertEquals('{{column}}', $connection->quoteColumnName('{{column}}'));
         $this->assertEquals('(column)', $connection->quoteColumnName('(column)'));
+    }
+
+    public function testTransactionIsolation()
+    {
+        $connection = $this->getConnection(true);
+        $transaction = $connection->beginTransaction();
+        $transaction->setIsolationLevel(Transaction::READ_UNCOMMITTED);
+        $transaction->commit();
+        $transaction = $connection->beginTransaction();
+        $transaction->setIsolationLevel(Transaction::READ_COMMITTED);
+        $transaction->commit();
+        $transaction = $connection->beginTransaction();
+        $transaction->setIsolationLevel(Transaction::REPEATABLE_READ);
+        $transaction->commit();
+        $transaction = $connection->beginTransaction();
+        $transaction->setIsolationLevel(Transaction::SERIALIZABLE);
+        $transaction->commit();
+        $transaction = $connection->beginTransaction();
+        $transaction->setIsolationLevel(Transaction::SERIALIZABLE . ' READ ONLY DEFERRABLE');
+        $transaction->commit();
     }
 }
