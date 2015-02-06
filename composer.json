@@ -12,7 +12,7 @@
         "php": ">=5.4",
         "mindy/helper": "0.1",
         "mindy/exception": "0.1",
-        "mindy/cache": "0.1",
+        "mindy/cache": "0.2",
         "mindy/logger": "1.0.3",
         "mindy/event": "0.1"
     },
