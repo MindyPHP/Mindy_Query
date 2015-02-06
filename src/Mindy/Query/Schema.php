@@ -65,7 +65,7 @@ abstract class Schema
      * If left part is found in DB error message exception class from the right part is used.
      */
     public $exceptionMap = [
-        'SQLSTATE[23' => 'yii\db\IntegrityException',
+        'SQLSTATE[23' => 'Mindy\Query\IntegrityException',
     ];
     /**
      * @var array list of ALL table names in the database
