@@ -13,7 +13,7 @@
         "mindy/helper": "0.1",
         "mindy/exception": "0.1",
         "mindy/cache": "0.1",
-        "mindy/logger": "0.1",
+        "mindy/logger": "1.0.3",
         "mindy/event": "0.1"
     },
     "require-dev": {
