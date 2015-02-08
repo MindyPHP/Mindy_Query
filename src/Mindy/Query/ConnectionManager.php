@@ -54,6 +54,10 @@ class ConnectionManager
      */
     public static function getDb($db = null)
     {
+        if ($db instanceof Connection) {
+            return $db;
+        }
+
         if ($db === null) {
             $db = self::$defaultDatabase;
         }

@@ -18,6 +18,8 @@ use Mindy\Exception\InvalidParamException;
  */
 class QueryBuilder extends \Mindy\Query\QueryBuilder
 {
+    use Lookup;
+
     /**
      * @var array mapping from abstract column types (keys) to physical column types (values).
      */
@@ -107,7 +109,7 @@ class QueryBuilder extends \Mindy\Query\QueryBuilder
                 $key = reset($table->primaryKey);
                 $value = "(SELECT COALESCE(MAX(\"{$key}\"),0) FROM {$tableName})+1";
             } else {
-                $value = (int) $value;
+                $value = (int)$value;
             }
             return "SELECT SETVAL('$sequence',$value,false)";
         } elseif ($table === null) {
@@ -196,5 +198,32 @@ class QueryBuilder extends \Mindy\Query\QueryBuilder
         }
         return 'INSERT INTO ' . $schema->quoteTableName($table)
         . ' (' . implode(', ', $columns) . ') VALUES ' . implode(', ', $values);
+    }
+
+    public function buildSelectPrepare($distinct)
+    {
+        if (!empty($distinct)) {
+            $select = 'SELECT DISTINCT ';
+            if (is_string($distinct)) {
+                return $select . $distinct;
+            } else if (is_array($distinct)) {
+                $i = 0;
+                foreach ($distinct as $key => $value) {
+                    if (is_numeric($key)) {
+                        $select .= $value;
+                    } else {
+                        $select .= 'ON (' . $key . ') ' . $value;
+                    }
+                    if (count($distinct) != $i) {
+                        $select .= ', ';
+                    }
+                    $i++;
+                }
+                return $select;
+            } else if ($distinct === true) {
+                return 'SELECT DISTINCT';
+            }
+        }
+        return 'SELECT';
     }
 }

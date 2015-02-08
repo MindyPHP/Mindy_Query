@@ -62,6 +62,7 @@ class Query implements QueryInterface
     /**
      * @var boolean whether to select distinct rows of data only. If this is set true,
      * the SELECT clause would be changed to SELECT DISTINCT.
+     * For Postgresql available array ['foo'] or ['foo' => 'bar'] for DISTINCT ON('foo') 'bar'.
      */
     public $distinct;
     /**
@@ -266,7 +267,13 @@ class Query implements QueryInterface
      */
     public function count($q = '*')
     {
-        return $this->queryScalar("COUNT($q)");
+        if ($this->distinct) {
+            // Prevent build distinct twice in [[QueryBuilder:buildSelect]]
+            $this->distinct = null;
+            return $this->queryScalar("COUNT(DISTINCT $q)");
+        } else {
+            return $this->queryScalar("COUNT($q)");
+        }
     }
 
     /**
@@ -277,7 +284,13 @@ class Query implements QueryInterface
      */
     public function sum($q)
     {
-        return $this->queryScalar("SUM($q)");
+        if ($this->distinct) {
+            // Prevent build distinct twice in [[QueryBuilder:buildSelect]]
+            $this->distinct = null;
+            return $this->queryScalar("SUM(DISTINCT $q)");
+        } else {
+            return $this->queryScalar("SUM($q)");
+        }
     }
 
     /**
@@ -288,7 +301,13 @@ class Query implements QueryInterface
      */
     public function average($q)
     {
-        return $this->queryScalar("AVG($q)");
+        if ($this->distinct) {
+            // Prevent build distinct twice in [[QueryBuilder:buildSelect]]
+            $this->distinct = null;
+            return $this->queryScalar("AVG(DISTINCT $q)");
+        } else {
+            return $this->queryScalar("AVG($q)");
+        }
     }
 
     /**
@@ -299,7 +318,13 @@ class Query implements QueryInterface
      */
     public function min($q)
     {
-        return $this->queryScalar("MIN($q)");
+        if ($this->distinct) {
+            // Prevent build distinct twice in [[QueryBuilder:buildSelect]]
+            $this->distinct = null;
+            return $this->queryScalar("MIN(DISTINCT $q)");
+        } else {
+            return $this->queryScalar("MIN($q)");
+        }
     }
 
     /**
@@ -310,7 +335,13 @@ class Query implements QueryInterface
      */
     public function max($q)
     {
-        return $this->queryScalar("MAX($q)");
+        if ($this->distinct) {
+            // Prevent build distinct twice in [[QueryBuilder:buildSelect]]
+            $this->distinct = null;
+            return $this->queryScalar("MAX(DISTINCT $q)");
+        } else {
+            return $this->queryScalar("MAX($q)");
+        }
     }
 
     /**
@@ -331,9 +362,9 @@ class Query implements QueryInterface
      * Restores the value of select to make this query reusable.
      * @param string|Expression $selectExpression
      * @param Connection|null $db
-     * @return bool|string
+     * @return \Mindy\Query\Command
      */
-    protected function queryScalar($selectExpression)
+    protected function makeQueryScalar($selectExpression)
     {
         $select = $this->select;
         $limit = $this->limit;
@@ -341,18 +372,32 @@ class Query implements QueryInterface
         $this->select = [$selectExpression];
         $this->limit = null;
         $this->offset = null;
-        $command = $this->createCommand($this->db);
+        $command = $this->createCommand();
         $this->select = $select;
         $this->limit = $limit;
         $this->offset = $offset;
         if (empty($this->groupBy) && empty($this->union) && !$this->distinct) {
-            return $command->queryScalar();
+            return $command;
         } else {
-            return (new Query)->select([$selectExpression])
-                ->from(['c' => $this])
-                ->createCommand($command->db)
-                ->queryScalar();
+            $query = new Query();
+            $query->using($command->db);
+            $query->select([$selectExpression]);
+            $query->from(['c' => $this]);
+            // TODO this working for pgsql: $query->from = '(' . $this->allSql() . ') "tests_nested_model_1"';
+            return $query->createCommand();
         }
+    }
+
+    /**
+     * Queries a scalar value by setting [[select]] first.
+     * Restores the value of select to make this query reusable.
+     * @param string|Expression $selectExpression
+     * @param Connection|null $db
+     * @return bool|string
+     */
+    protected function queryScalar($selectExpression)
+    {
+        return $this->makeQueryScalar($selectExpression)->queryScalar();
     }
 
     /**
@@ -407,12 +452,13 @@ class Query implements QueryInterface
 
     /**
      * Sets the value indicating whether to SELECT DISTINCT or not.
-     * @param boolean $value whether to SELECT DISTINCT or not.
+     * @param mixed $fields whether to SELECT DISTINCT or not.
+     * For Postgresql available array ['foo'] or ['foo' => 'bar'] for DISTINCT ON('foo') 'bar'.
      * @return static the query object itself
      */
-    public function distinct($value = true)
+    public function distinct($fields = true)
     {
-        $this->distinct = $value;
+        $this->distinct = $fields;
         return $this;
     }
 
@@ -800,22 +846,14 @@ class Query implements QueryInterface
      */
     public function countSql($q = '*')
     {
-        $selectExpression = "COUNT($q)";
-
-        $select = $this->select;
-        $limit = $this->limit;
-        $offset = $this->offset;
-
-        $this->select = [$selectExpression];
-        $this->limit = null;
-        $this->offset = null;
-        $sql = $this->querySql();
-
-        $this->select = $select;
-        $this->limit = $limit;
-        $this->offset = $offset;
-
-        return $sql;
+        if ($this->distinct) {
+            // Prevent build distinct twice in [[QueryBuilder:buildSelect]]
+            $this->distinct = null;
+            $command = $this->makeQueryScalar("COUNT(DISTINCT $q)");
+        } else {
+            $command = $this->makeQueryScalar("COUNT($q)");
+        }
+        return $command->getRawSql();
     }
 
     /**
@@ -866,7 +904,6 @@ class Query implements QueryInterface
             $n++;
         }
         $command = $this->createCommand()->update($tableName, $newCounters, $this->where, $this->params);
-
         return $command->execute();
     }
 

@@ -593,6 +593,11 @@ class QueryBuilder
         return $type;
     }
 
+    public function buildSelectPrepare($distinct)
+    {
+        return $distinct ? 'SELECT DISTINCT' : 'SELECT';
+    }
+
     /**
      * @param array $columns
      * @param array $params the binding parameters to be populated
@@ -602,13 +607,14 @@ class QueryBuilder
      */
     public function buildSelect($columns, &$params, $distinct = false, $selectOption = null)
     {
-        $select = $distinct ? 'SELECT DISTINCT' : 'SELECT';
+        $select = $this->buildSelectPrepare($distinct);
         if ($selectOption !== null) {
             $select .= ' ' . $selectOption;
         }
         if (empty($columns)) {
             return $select . ' *';
         }
+        $columns = (array)$columns;
         foreach ($columns as $i => $column) {
             if ($column instanceof Expression) {
                 $columns[$i] = $column->expression;
@@ -642,7 +648,9 @@ class QueryBuilder
         if (empty($tables)) {
             return '';
         }
-        $tables = (array)$tables;
+        if (!is_array($tables)) {
+            $tables = (array)$tables;
+        }
         $tables = $this->quoteTableNames($tables, $params);
         return 'FROM ' . implode(', ', $tables);
     }

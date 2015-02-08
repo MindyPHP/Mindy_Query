@@ -349,6 +349,7 @@ trait QueryTrait
                     $result[$column] = SORT_ASC;
                 }
             }
+
             return $result;
         }
     }
