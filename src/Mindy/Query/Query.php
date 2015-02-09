@@ -445,34 +445,14 @@ class Query implements QueryInterface
         $this->limit = $limit;
         $this->offset = $offset;
 
-        /**
-         * В данном коде логика завязана на подзапросе и проверке на выполнение подзапроса по !empty($this->groupBy),
-         * но для pgsql при участии SQL ORDER BY поле должно находиться в SQL GROUP BY, следовательно условие всегда
-         * будет провальным
-         */
-        $schema = $this->getDb();
-        if ($schema instanceof \Mindy\Query\Pgsql\Schema) {
-            if (empty($this->union) && !$this->distinct) {
-                return $command;
-            } else {
-                $query = new Query();
-                $query->using($command->db);
-                $query->select([$selectExpression]);
-                $query->from(['c' => $this]);
-                // TODO this working for pgsql: $query->from = '(' . $this->allSql() . ') "tests_nested_model_1"';
-                return $query->createCommand();
-            }
+        if (empty($this->groupBy) && empty($this->union) && !$this->distinct) {
+            return $command;
         } else {
-            if (empty($this->groupBy) && empty($this->union) && !$this->distinct) {
-                return $command;
-            } else {
-                $query = new Query();
-                $query->using($command->db);
-                $query->select([$selectExpression]);
-                $query->from(['c' => $this]);
-                // TODO this working for pgsql: $query->from = '(' . $this->allSql() . ') "tests_nested_model_1"';
-                return $query->createCommand();
-            }
+            $query = new Query();
+            $query->using($command->db);
+            $query->select([$selectExpression]);
+            $query->from(['c' => $this]);
+            return $query->createCommand();
         }
     }
 
@@ -1013,5 +993,14 @@ class Query implements QueryInterface
         $command = $this->createCommand();
         $command->update($tableName, $attributes, $this->where, $this->params);
         return $command->execute();
+    }
+
+    /**
+     * @return Schema
+     * @throws \Mindy\Exception\NotSupportedException
+     */
+    public function getSchema()
+    {
+        return $this->getDb()->getSchema();
     }
 }

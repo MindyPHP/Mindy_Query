@@ -786,7 +786,6 @@ class Command
                 $this->pdoStatement->closeCursor();
             }
             $this->getLogger()->endProfile($token, __METHOD__);
-        // TODO replace \Exception to Exception and show failed tests in `testQuery`
         } catch (\Exception $e) {
             $this->getLogger()->endProfile($token, __METHOD__);
             throw $this->db->getSchema()->convertException($e, $rawSql);
