@@ -294,6 +294,23 @@ class Query implements QueryInterface
     }
 
     /**
+     * Returns the sum of the specified column values.
+     * @param string $q the column name or expression.
+     * Make sure you properly quote column names in the expression.
+     * @return mixed the sum of the specified column values.
+     */
+    public function sumSql($q)
+    {
+        if ($this->distinct) {
+            // Prevent build distinct twice in [[QueryBuilder:buildSelect]]
+            $this->distinct = null;
+            return $this->makeQueryScalar("SUM(DISTINCT $q)")->getRawSql();
+        } else {
+            return $this->makeQueryScalar("SUM($q)")->getRawSql();
+        }
+    }
+
+    /**
      * Returns the average of the specified column values.
      * @param string $q the column name or expression.
      * Make sure you properly quote column names in the expression.
@@ -307,6 +324,23 @@ class Query implements QueryInterface
             return $this->queryScalar("AVG(DISTINCT $q)");
         } else {
             return $this->queryScalar("AVG($q)");
+        }
+    }
+
+    /**
+     * Returns the average of the specified column values.
+     * @param string $q the column name or expression.
+     * Make sure you properly quote column names in the expression.
+     * @return mixed the average of the specified column values.
+     */
+    public function averageSql($q)
+    {
+        if ($this->distinct) {
+            // Prevent build distinct twice in [[QueryBuilder:buildSelect]]
+            $this->distinct = null;
+            return $this->makeQueryScalar("AVG(DISTINCT $q)")->getRawSql();
+        } else {
+            return $this->makeQueryScalar("AVG($q)")->getRawSql();
         }
     }
 
@@ -328,6 +362,23 @@ class Query implements QueryInterface
     }
 
     /**
+     * Returns the minimum of the specified column values.
+     * @param string $q the column name or expression.
+     * Make sure you properly quote column names in the expression.
+     * @return mixed the minimum of the specified column values.
+     */
+    public function minSql($q)
+    {
+        if ($this->distinct) {
+            // Prevent build distinct twice in [[QueryBuilder:buildSelect]]
+            $this->distinct = null;
+            return $this->makeQueryScalar("MIN(DISTINCT $q)")->getRawSql();
+        } else {
+            return $this->makeQueryScalar("MIN($q)")->getRawSql();
+        }
+    }
+
+    /**
      * Returns the maximum of the specified column values.
      * @param string $q the column name or expression.
      * Make sure you properly quote column names in the expression.
@@ -341,6 +392,23 @@ class Query implements QueryInterface
             return $this->queryScalar("MAX(DISTINCT $q)");
         } else {
             return $this->queryScalar("MAX($q)");
+        }
+    }
+
+    /**
+     * Returns the maximum of the specified column values.
+     * @param string $q the column name or expression.
+     * Make sure you properly quote column names in the expression.
+     * @return mixed the maximum of the specified column values.
+     */
+    public function maxSql($q)
+    {
+        if ($this->distinct) {
+            // Prevent build distinct twice in [[QueryBuilder:buildSelect]]
+            $this->distinct = null;
+            return $this->makeQueryScalar("MAX(DISTINCT $q)")->getRawSql();
+        } else {
+            return $this->makeQueryScalar("MAX($q)")->getRawSql();
         }
     }
 
@@ -376,15 +444,35 @@ class Query implements QueryInterface
         $this->select = $select;
         $this->limit = $limit;
         $this->offset = $offset;
-        if (empty($this->groupBy) && empty($this->union) && !$this->distinct) {
-            return $command;
+
+        /**
+         * В данном коде логика завязана на подзапросе и проверке на выполнение подзапроса по !empty($this->groupBy),
+         * но для pgsql при участии SQL ORDER BY поле должно находиться в SQL GROUP BY, следовательно условие всегда
+         * будет провальным
+         */
+        $schema = ConnectionManager::getDb()->getSchema();
+        if ($schema instanceof \Mindy\Query\Pgsql\Schema) {
+            if (empty($this->union) && !$this->distinct) {
+                return $command;
+            } else {
+                $query = new Query();
+                $query->using($command->db);
+                $query->select([$selectExpression]);
+                $query->from(['c' => $this]);
+                // TODO this working for pgsql: $query->from = '(' . $this->allSql() . ') "tests_nested_model_1"';
+                return $query->createCommand();
+            }
         } else {
-            $query = new Query();
-            $query->using($command->db);
-            $query->select([$selectExpression]);
-            $query->from(['c' => $this]);
-            // TODO this working for pgsql: $query->from = '(' . $this->allSql() . ') "tests_nested_model_1"';
-            return $query->createCommand();
+            if (empty($this->groupBy) && empty($this->union) && !$this->distinct) {
+                return $command;
+            } else {
+                $query = new Query();
+                $query->using($command->db);
+                $query->select([$selectExpression]);
+                $query->from(['c' => $this]);
+                // TODO this working for pgsql: $query->from = '(' . $this->allSql() . ') "tests_nested_model_1"';
+                return $query->createCommand();
+            }
         }
     }
 
