@@ -119,7 +119,7 @@ class Query implements QueryInterface
      */
     public function createCommand()
     {
-        $db = ConnectionManager::getDb($this->db);
+        $db = $this->getDb();
         list ($sql, $params) = $db->getQueryBuilder()->build($this);
         return $db->createCommand($sql, $params);
     }
@@ -450,7 +450,7 @@ class Query implements QueryInterface
          * но для pgsql при участии SQL ORDER BY поле должно находиться в SQL GROUP BY, следовательно условие всегда
          * будет провальным
          */
-        $schema = ConnectionManager::getDb()->getSchema();
+        $schema = $this->getDb();
         if ($schema instanceof \Mindy\Query\Pgsql\Schema) {
             if (empty($this->union) && !$this->distinct) {
                 return $command;
@@ -925,7 +925,7 @@ class Query implements QueryInterface
 
     public function getDb()
     {
-        return ConnectionManager::getDb($this->db);
+        return $this->db instanceof Connection ? $this->db : ConnectionManager::getDb($this->db);
     }
 
     /**

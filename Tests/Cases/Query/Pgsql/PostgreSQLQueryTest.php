@@ -21,21 +21,20 @@ class PostgreSQLQueryTest extends QueryTest
         $command = $db->createCommand();
         $command->batchInsert('bool_values', ['bool_col'], [[true], [false]])->execute();
 
-        $this->assertEquals(1, $this->newQuery()->where('bool_col = TRUE')->count('*'));
-        $this->assertEquals(1, $this->newQuery()->where('bool_col = FALSE')->count('*'));
-        $this->assertEquals(2, $this->newQuery()->where('bool_col IN (TRUE, FALSE)')->count('*'));
-        $this->assertEquals(1, $this->newQuery()->where(['bool_col' => true])->count('*'));
-        $this->assertEquals(1, $this->newQuery()->where(['bool_col' => false])->count('*'));
-        $this->assertEquals(2, $this->newQuery()->where(['bool_col' => [true, false]])->count('*'));
-        $this->assertEquals(1, $this->newQuery()->where('bool_col = :bool_col', ['bool_col' => true])->count('*'));
-        $this->assertEquals(1, $this->newQuery()->where('bool_col = :bool_col', ['bool_col' => false])->count('*'));
+        $this->assertEquals(1, $this->newQuery($db)->where('bool_col = TRUE')->count('*'));
+        $this->assertEquals(1, $this->newQuery($db)->where('bool_col = FALSE')->count('*'));
+        $this->assertEquals(2, $this->newQuery($db)->where('bool_col IN (TRUE, FALSE)')->count('*'));
+        $this->assertEquals(1, $this->newQuery($db)->where(['bool_col' => true])->count('*'));
+        $this->assertEquals(1, $this->newQuery($db)->where(['bool_col' => false])->count('*'));
+        $this->assertEquals(2, $this->newQuery($db)->where(['bool_col' => [true, false]])->count('*'));
+        $this->assertEquals(1, $this->newQuery($db)->where('bool_col = :bool_col', ['bool_col' => true])->count('*'));
+        $this->assertEquals(1, $this->newQuery($db)->where('bool_col = :bool_col', ['bool_col' => false])->count('*'));
     }
 
-    protected function newQuery()
+    protected function newQuery($db)
     {
-        return new Query([
-            'db' => $this->driverName,
-            'from' => 'bool_values'
-        ]);
+        $query = new Query(['from' => 'bool_values']);
+        $query->using($db);
+        return $query;
     }
 }
