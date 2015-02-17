@@ -467,8 +467,8 @@ class Connection
         }
         if ($duration === 0 || $duration > 0) {
             if (is_string($this->queryCache) && class_exists('\Mindy\Base\Mindy')) {
-                if (Mindy::app()) {
-                    $cache = Mindy::app()->getComponent($this->queryCache, false);
+                if (\Mindy\Base\Mindy::app()) {
+                    $cache = \Mindy\Base\Mindy::app()->getComponent($this->queryCache, false);
                 } else {
                     $cache = $this->queryCache;
                 }
@@ -506,13 +506,13 @@ class Connection
         }
         $token = 'Opening DB connection: ' . $this->dsn;
         try {
-            // TODO Yii::info($token, __METHOD__);
-            // TODO Yii::beginProfile($token, __METHOD__);
+            $this->getLogger()->info($token, ['method' => __METHOD__]);
+            $this->getLogger()->beginProfile($token, __METHOD__);
             $this->pdo = $this->createPdoInstance();
             $this->initConnection();
-            // TODO Yii::endProfile($token, __METHOD__);
+            $this->getLogger()->endProfile($token, __METHOD__);
         } catch (\PDOException $e) {
-            // TODO Yii::endProfile($token, __METHOD__);
+            $this->getLogger()->endProfile($token, __METHOD__);
             throw new Exception($e->getMessage(), $e->errorInfo, (int) $e->getCode(), $e);
         }
     }
