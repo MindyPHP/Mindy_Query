@@ -3,16 +3,16 @@
 namespace Mindy\Query\Exception;
 
 /**
- * Class IntegrityException
- * @package Mindy\Query
+ * @author Qiang Xue <qiang.xue@gmail.com>
+ * @since 2.0
  */
-class IntegrityException extends Exception
+class StaleObjectException extends Exception
 {
     /**
      * @return string the user-friendly name of this exception
      */
     public function getName()
     {
-        return 'Integrity constraint violation';
+        return 'Stale Object Exception';
     }
 }

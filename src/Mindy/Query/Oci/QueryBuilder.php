@@ -1,9 +1,4 @@
 <?php
-/**
- * @link http://www.yiiframework.com/
- * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
- */
 
 namespace Mindy\Query\Oci;
 
@@ -12,8 +7,9 @@ use Mindy\Exception\InvalidParamException;
 use Mindy\Query\Connection;
 
 /**
+ * Class QueryBuilder
  * QueryBuilder is the query builder for Oracle databases.
- *
+ * @package Mindy\Query
  */
 class QueryBuilder extends \Mindy\Query\QueryBuilder
 {

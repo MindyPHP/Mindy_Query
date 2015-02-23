@@ -1,9 +1,4 @@
 <?php
-/**
- * @link http://www.yiiframework.com/
- * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
- */
 
 namespace Mindy\Query\Oci;
 
@@ -21,6 +16,7 @@ use Mindy\Query\TableSchema;
  *
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
+ * @package Mindy\Query
  */
 class Schema extends \Mindy\Query\Schema
 {

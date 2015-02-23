@@ -1,11 +1,5 @@
 <?php
 
-/**
- * @link http://www.yiiframework.com/
- * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
- */
-
 namespace Mindy\Query\Pgsql;
 
 use Mindy\Exception\InvalidParamException;
@@ -15,6 +9,7 @@ use Mindy\Exception\InvalidParamException;
  *
  * @author Gevik Babakhani <gevikb@gmail.com>
  * @since 2.0
+ * @package Mindy\Query
  */
 class QueryBuilder extends \Mindy\Query\QueryBuilder
 {

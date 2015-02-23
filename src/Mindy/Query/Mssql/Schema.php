@@ -1,9 +1,4 @@
 <?php
-/**
- * @link http://www.yiiframework.com/
- * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
- */
 
 namespace Mindy\Query\Mssql;
 
@@ -14,6 +9,7 @@ use Mindy\Query\ColumnSchema;
  *
  * @author Timur Ruziev <resurtm@gmail.com>
  * @since 2.0
+ * @package Mindy\Query
  */
 class Schema extends \Mindy\Query\Schema
 {

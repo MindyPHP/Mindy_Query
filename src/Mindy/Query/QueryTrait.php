@@ -1,10 +1,8 @@
 <?php
 
-/**
- * @link http://www.yiiframework.com/
- * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
- */
+namespace Mindy\Query;
+
+use Mindy\Exception\NotSupportedException;
 
 /**
  * The BaseQuery trait represents the minimum method set of a database Query.
@@ -19,12 +17,8 @@
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @author Carsten Brandt <mail@cebe.cc>
  * @since 2.0
+ * @package Mindy\Query
  */
-
-namespace Mindy\Query;
-
-use Mindy\Exception\NotSupportedException;
-
 trait QueryTrait
 {
     /**

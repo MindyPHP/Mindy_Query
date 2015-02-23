@@ -1,25 +1,16 @@
 <?php
-/**
- *
- *
- * All rights reserved.
- *
- * @author Falaleev Maxim
- * @email max@studio107.ru
- * @version 1.0
- * @company Studio107
- * @site http://studio107.ru
- * @date 19/07/14.07.2014 16:08
- */
 
 namespace Mindy\Query;
-
 
 use Mindy\Helper\Creator;
 use Mindy\Helper\Traits\Accessors;
 use Mindy\Helper\Traits\Configurator;
 use Mindy\Query\Exception\UnknownDatabase;
 
+/**
+ * Class ConnectionManager
+ * @package Mindy\Query
+ */
 class ConnectionManager
 {
     use Accessors, Configurator;

@@ -1,11 +1,5 @@
 <?php
 
-/**
- * @link http://www.yiiframework.com/
- * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
- */
-
 namespace Mindy\Query\Pgsql;
 
 use Mindy\Query\ColumnSchema;
@@ -18,6 +12,7 @@ use Mindy\Query\TableSchema;
  *
  * @author Gevik Babakhani <gevikb@gmail.com>
  * @since 2.0
+ * @package Mindy\Query
  */
 class Schema extends \Mindy\Query\Schema
 {

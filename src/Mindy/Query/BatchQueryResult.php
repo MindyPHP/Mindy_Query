@@ -1,16 +1,5 @@
 <?php
 
-/**
- * All rights reserved.
- *
- * @author Falaleev Maxim
- * @email max@studio107.ru
- * @version 1.0
- * @company Studio107
- * @site http://studio107.ru
- * @date 05/02/15 19:26
- */
-
 namespace Mindy\Query;
 
 use Iterator;
@@ -35,6 +24,7 @@ use Mindy\Helper\Traits\Configurator;
  *
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
+ * @package Mindy\Query
  */
 class BatchQueryResult implements Iterator
 {

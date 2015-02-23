@@ -1,22 +1,13 @@
 <?php
-/**
- *
- *
- * All rights reserved.
- *
- * @author Falaleev Maxim
- * @email max@studio107.ru
- * @version 1.0
- * @company Studio107
- * @site http://studio107.ru
- * @date 05/05/14.05.2014 16:34
- */
 
 namespace Mindy\Query\Sqlite;
 
-
 use Mindy\Query\Exception;
 
+/**
+ * Class PDO
+ * @package Mindy\Query
+ */
 class PDO extends \PDO
 {
     public function __construct($dsn, $username, $passwd, $options)
