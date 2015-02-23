@@ -3,8 +3,8 @@
 namespace Mindy\Query\Exception;
 
 /**
- * @author Qiang Xue <qiang.xue@gmail.com>
- * @since 2.0
+ * Class StaleObjectException
+ * @package Mindy\Query
  */
 class StaleObjectException extends Exception
 {
