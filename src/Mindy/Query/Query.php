@@ -108,6 +108,22 @@ class Query implements QueryInterface
      * For example, `[':name' => 'Dan', ':age' => 31]`.
      */
     public $params = [];
+    /**
+     * @var integer the default number of seconds that query results can remain valid in cache.
+     * Use 0 to indicate that the cached data will never expire. And use a negative number to indicate
+     * query cache should not be used.
+     * @see cache()
+     */
+    public $queryCacheDuration;
+    /**
+     * @var \Mindy\Cache\Dependency the dependency to be associated with the cached query result for this command
+     * @see cache()
+     */
+    public $queryCacheDependency;
+    /**
+     * @var bool
+     */
+    public $noCache = false;
 
     /**
      * Creates a DB command that can be used to execute this query.
@@ -117,7 +133,38 @@ class Query implements QueryInterface
     {
         $db = $this->getDb();
         list ($sql, $params) = $db->getQueryBuilder()->build($this);
-        return $db->createCommand($sql, $params);
+        $command = $db->createCommand($sql, $params);
+        if ($this->queryCacheDuration) {
+            $command->cache($this->queryCacheDuration, $this->queryCacheDependency);
+        } elseif ($this->noCache) {
+            $command->noCache();
+        }
+        return $command;
+    }
+
+    /**
+     * Enables query cache for this command.
+     * @param integer $duration the number of seconds that query result of this command can remain valid in the cache.
+     * If this is not set, the value of [[Connection::queryCacheDuration]] will be used instead.
+     * Use 0 to indicate that the cached data will never expire.
+     * @param \Mindy\Cache\Dependency $dependency the cache dependency associated with the cached query result.
+     * @return static the command object itself
+     */
+    public function cache($duration = null, $dependency = null)
+    {
+        $this->queryCacheDuration = $duration === null ? $this->db->queryCacheDuration : $duration;
+        $this->queryCacheDependency = $dependency;
+        return $this;
+    }
+
+    /**
+     * Disables query cache for this command.
+     * @return static the command object itself
+     */
+    public function noCache()
+    {
+        $this->queryCacheDuration = -1;
+        return $this;
     }
 
     /**
