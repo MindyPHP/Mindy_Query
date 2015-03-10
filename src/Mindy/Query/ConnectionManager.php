@@ -54,7 +54,6 @@ class ConnectionManager
         }
 
         if (!isset(self::$_databases[$db])) {
-            d(debug_backtrace());
             throw new UnknownDatabase();
         }
 
