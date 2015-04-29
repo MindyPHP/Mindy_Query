@@ -477,6 +477,7 @@ class Query implements QueryInterface
      */
     protected function makeQueryScalar($selectExpression)
     {
+        $this->orderBy = null;
         $select = $this->select;
         $limit = $this->limit;
         $offset = $this->offset;
