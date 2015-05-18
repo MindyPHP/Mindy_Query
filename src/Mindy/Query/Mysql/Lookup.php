@@ -1,13 +1,23 @@
 <?php
+/**
+ *
+ *
+ * All rights reserved.
+ *
+ * @author Falaleev Maxim
+ * @email max@studio107.ru
+ * @version 1.0
+ * @company Studio107
+ * @site http://studio107.ru
+ * @date 05/05/14.05.2014 14:49
+ */
 
 namespace Mindy\Query\Mysql;
 
-/**
- * Class Lookup
- * @package Mindy\Query
- */
 trait Lookup
 {
+    public $dateFormat = "Y-m-d";
+
     public $dateTimeFormat = "Y-m-d H:i:s";
 
     /**
@@ -314,6 +324,19 @@ trait Lookup
             $value = date($this->dateTimeFormat, $value);
         } elseif (is_string($value)) {
             $value = date($this->dateTimeFormat, strtotime($value));
+        }
+        return $value;
+    }
+
+    public function convertToDate($value = null)
+    {
+        /* @var $this \Mindy\Query\Mysql\QueryBuilder */
+        if ($value === null) {
+            $value = date($this->dateFormat);
+        } elseif (is_numeric($value)) {
+            $value = date($this->dateFormat, $value);
+        } elseif (is_string($value)) {
+            $value = date($this->dateFormat, strtotime($value));
         }
         return $value;
     }
