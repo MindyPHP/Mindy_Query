@@ -2,6 +2,7 @@
 
 namespace Mindy\Query;
 
+use Mindy\Base\Mindy;
 use Mindy\Helper\Creator;
 use Mindy\Helper\Traits\Accessors;
 use Mindy\Helper\Traits\Configurator;
@@ -949,9 +950,14 @@ class Query implements QueryInterface
         return $this;
     }
 
+    /**
+     * @return \Mindy\Query\Connection
+     */
     public function getDb()
     {
-        return $this->db instanceof Connection ? $this->db : ConnectionManager::getDb($this->db);
+        /** @var \Mindy\Query\ConnectionManager $db */
+        $db = Mindy::app()->db;
+        return $db->getDb($this->db);
     }
 
     /**
