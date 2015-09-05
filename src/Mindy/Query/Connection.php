@@ -2,7 +2,6 @@
 
 namespace Mindy\Query;
 
-use InvalidArgumentException;
 use Mindy\Cache\Cache;
 use Mindy\Exception\InvalidConfigException;
 use Mindy\Exception\NotSupportedException;
@@ -445,8 +444,7 @@ class Connection
      * @param integer $duration the preferred caching duration. If null, it will be ignored.
      * @param \Mindy\Cache\Dependency $dependency the preferred caching dependency. If null, it will be ignored.
      * @return array the current query cache information, or null if query cache is not enabled.
-     * @internal
-     */
+-     */
     public function getQueryCacheInfo($duration, $dependency)
     {
         if (!$this->enableQueryCache) {
@@ -509,7 +507,7 @@ class Connection
             $this->getLogger()->endProfile($token, __METHOD__);
         } catch (\PDOException $e) {
             $this->getLogger()->endProfile($token, __METHOD__);
-            throw new Exception($e->getMessage(), $e->errorInfo, (int) $e->getCode(), $e);
+            throw new Exception($e->getMessage(), $e->errorInfo, (int)$e->getCode(), $e);
         }
     }
 
@@ -839,6 +837,7 @@ class Connection
             return $db->pdo;
         }
     }
+
     /**
      * Returns the PDO instance for the currently active master connection.
      * This method will open the master DB connection and then return [[pdo]].

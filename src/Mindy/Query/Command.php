@@ -717,7 +717,7 @@ class Command
     {
         $sql = $this->getSql();
         $rawSql = $this->getRawSql();
-        $this->getLogger()->info($rawSql, ['method' => __METHOD__]);
+        $this->getLogger()->debug($rawSql, ['method' => __METHOD__]);
         if ($sql == '') {
             return 0;
         }
@@ -747,7 +747,7 @@ class Command
     protected function queryInternal($method, $fetchMode = null)
     {
         $rawSql = $this->getRawSql();
-        $this->getLogger()->info($rawSql, ['method' => __METHOD__]);
+        $this->getLogger()->debug($rawSql, ['method' => __METHOD__]);
         if ($method !== '') {
             $info = $this->db->getQueryCacheInfo($this->queryCacheDuration, $this->queryCacheDependency);
             if (is_array($info)) {
