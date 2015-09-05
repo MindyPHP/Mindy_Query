@@ -500,7 +500,7 @@ class Connection
         }
         $token = 'Opening DB connection: ' . $this->dsn;
         try {
-            $this->getLogger()->info($token, ['method' => __METHOD__]);
+            $this->getLogger()->debug($token, ['method' => __METHOD__]);
             $this->getLogger()->beginProfile($token, __METHOD__);
             $this->pdo = $this->createPdoInstance();
             $this->initConnection();
