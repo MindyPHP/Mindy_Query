@@ -319,7 +319,7 @@ trait Lookup
 
     public function convertToBoolean($value)
     {
-        return (bool)$value ? 1 : 0;
+        return (bool)$value ? 'TRUE' : 'FALSE';
     }
 
     public function getRandomOrder()
