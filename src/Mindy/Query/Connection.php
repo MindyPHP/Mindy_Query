@@ -703,7 +703,7 @@ class Connection
 
     /**
      * Returns the query builder for the current DB connection.
-     * @return QueryBuilder the query builder for the current DB connection.
+     * @return \Mindy\Query\Pgsql\Lookup|\Mindy\Query\Mysql\Lookup|QueryBuilder the query builder for the current DB connection.
      */
     public function getQueryBuilder()
     {

@@ -38,7 +38,7 @@ trait Lookup
      */
     public function buildIendswith($field, $value)
     {
-        return [['ilike', $field, '%' . $value, false], []];
+        return [['like', $field, '%' . $value, false], []];
     }
 
     /**
@@ -58,7 +58,7 @@ trait Lookup
      */
     public function buildIStartswith($field, $value)
     {
-        return [['ilike', $field, $value . '%', false], []];
+        return [['like', $field, $value . '%', false], []];
     }
 
     /**
@@ -68,7 +68,7 @@ trait Lookup
      */
     public function buildIcontains($field, $value)
     {
-        return [['ilike', $field, $value], []];
+        return [['like', $field, $value], []];
     }
 
     /**

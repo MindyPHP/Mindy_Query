@@ -2,6 +2,7 @@
 
 namespace Mindy\Query;
 
+use Mindy\Base\Mindy;
 use Mindy\Cache\Cache;
 use Mindy\Cache\TagDependency;
 use Mindy\Exception\InvalidCallException;

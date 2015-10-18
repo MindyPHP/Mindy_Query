@@ -37,7 +37,7 @@ class Migration
     use Accessors, Configurator;
 
     /**
-     * @var Connection[]
+     * @var Connection
      */
     private $_db;
 
@@ -413,5 +413,17 @@ class Migration
         $time = microtime(true);
         $this->_db->createCommand()->dropIndex($name, $table)->execute();
         echo " done (time: " . sprintf('%.3f', microtime(true) - $time) . "s)\n";
+    }
+
+    /**
+     * Check table in database.
+     * @param $model \Mindy\Orm\Model
+     * @param null $tableName
+     * @return bool
+     */
+    public function hasTable($tableName = null)
+    {
+        $schema = $this->_db->getSchema();
+        return in_array($schema->getRawTableName($tableName), $schema->getTableNames('', true));
     }
 }
