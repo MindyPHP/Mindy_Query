@@ -2,7 +2,7 @@
     "name": "mindy/query",
     "homepage": "https://github.com/studio107/Mindy_Query",
     "license": "MIT",
-    "version": "0.4",
+    "version": "0.4.1",
     "autoload": {
         "psr-4": {
             "Mindy\\Query\\": "src/Mindy/Query"
@@ -10,11 +10,11 @@
     },
     "require": {
         "php": ">=5.4",
-        "mindy/helper": "0.*",
-        "mindy/exception": "0.*",
-        "mindy/cache": "0.*",
-        "mindy/logger": ">=1.0.3",
-        "mindy/event": "0.*"
+        "mindy/helper": "*",
+        "mindy/exception": "*",
+        "mindy/cache": "*",
+        "mindy/logger": "*",
+        "mindy/event": "*"
     },
     "require-dev": {
         "satooshi/php-coveralls": "dev-master"
