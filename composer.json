@@ -1,8 +1,8 @@
 {
     "name": "mindy/query",
-    "homepage": "https://github.com/studio107/Mindy_Query",
-    "license": "MIT",
-    "version": "0.4.1",
+    "homepage": "https://github.com/MindyPHP/Mindy_Query",
+    "license": "BSD",
+    "version": "1.0",
     "autoload": {
         "psr-4": {
             "Mindy\\Query\\": "src/Mindy/Query"
@@ -26,6 +26,6 @@
         "role": "Developer"
     }],
     "support": {
-        "issues": "https://github.com/studio107/Mindy_Query/issues?state=open"
+        "issues": "https://github.com/MindyPHP/Mindy_Query/issues?state=open"
     }
 }
