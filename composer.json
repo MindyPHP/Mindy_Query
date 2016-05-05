@@ -2,7 +2,6 @@
     "name": "mindy/query",
     "homepage": "https://github.com/MindyPHP/Mindy_Query",
     "license": "BSD",
-    "version": "1.0",
     "autoload": {
         "psr-4": {
             "Mindy\\Query\\": "src/Mindy/Query"
