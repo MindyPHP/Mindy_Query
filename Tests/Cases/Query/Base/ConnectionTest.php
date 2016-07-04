@@ -3,17 +3,16 @@
 use Mindy\Query\Connection;
 use Mindy\Query\Transaction;
 
-
 /**
  * @group db
  * @group mysql
  */
-class ConnectionTest extends DatabaseTestCase
+abstract class ConnectionTest extends DatabaseTestCase
 {
     public function testConstruct()
     {
         $connection = $this->getConnection(false);
-        $params = $this->database;
+        $params = $this->config[$this->driverName];
         $this->assertEquals($params['dsn'], $connection->dsn);
         $this->assertEquals($params['username'], $connection->username);
         $this->assertEquals($params['password'], $connection->password);
@@ -32,7 +31,7 @@ class ConnectionTest extends DatabaseTestCase
         $this->assertEquals(null, $connection->pdo);
         $connection = new Connection;
         $connection->dsn = 'unknown::memory:';
-        $this->setExpectedException('Mindy\Query\Exception');
+        $this->expectException(\Mindy\Query\Exception\Exception::class);
         $connection->open();
     }
 
@@ -42,54 +41,23 @@ class ConnectionTest extends DatabaseTestCase
         $this->assertEquals($this->driverName, $connection->driverName);
     }
 
-    public function testQuoteValue()
-    {
-        $connection = $this->getConnection(false);
-        $this->assertEquals(123, $connection->quoteValue(123));
-        $this->assertEquals("'string'", $connection->quoteValue('string'));
-        $this->assertEquals("'It\\'s interesting'", $connection->quoteValue("It's interesting"));
-    }
-
-    public function testQuoteTableName()
-    {
-        $connection = $this->getConnection(false);
-        $this->assertEquals('`table`', $connection->quoteTableName('table'));
-        $this->assertEquals('`table`', $connection->quoteTableName('`table`'));
-        $this->assertEquals('`schema`.`table`', $connection->quoteTableName('schema.table'));
-        $this->assertEquals('`schema`.`table`', $connection->quoteTableName('schema.`table`'));
-        $this->assertEquals('{{table}}', $connection->quoteTableName('{{table}}'));
-        $this->assertEquals('(table)', $connection->quoteTableName('(table)'));
-    }
-
-    public function testQuoteColumnName()
-    {
-        $connection = $this->getConnection(false);
-        $this->assertEquals('`column`', $connection->quoteColumnName('column'));
-        $this->assertEquals('`column`', $connection->quoteColumnName('`column`'));
-        $this->assertEquals('`table`.`column`', $connection->quoteColumnName('table.column'));
-        $this->assertEquals('`table`.`column`', $connection->quoteColumnName('table.`column`'));
-        $this->assertEquals('[[column]]', $connection->quoteColumnName('[[column]]'));
-        $this->assertEquals('{{column}}', $connection->quoteColumnName('{{column}}'));
-        $this->assertEquals('(column)', $connection->quoteColumnName('(column)'));
-    }
-
     public function testTransaction()
     {
         $connection = $this->getConnection(false);
         $this->assertNull($connection->transaction);
         $transaction = $connection->beginTransaction();
-        $this->assertNotNull($connection->transaction);
-        $this->assertTrue($transaction->isActive);
-        $connection->createCommand()->insert('profile', ['description' => 'test transaction'])->execute();
+        $this->assertNotNull($connection->getTransaction());
+        $this->assertTrue($transaction->getIsActive());
+        $connection->createCommand("INSERT INTO profile (description) VALUES ('test transaction')")->execute();
         $transaction->rollBack();
-        $this->assertFalse($transaction->isActive);
-        $this->assertNull($connection->transaction);
+        $this->assertFalse($transaction->getIsActive());
+        $this->assertNull($connection->getTransaction());
         $this->assertEquals(0, $connection->createCommand("SELECT COUNT(*) FROM profile WHERE description = 'test transaction';")->queryScalar());
         $transaction = $connection->beginTransaction();
-        $connection->createCommand()->insert('profile', ['description' => 'test transaction'])->execute();
+        $connection->createCommand("INSERT INTO profile (description) VALUES ('test transaction')")->execute();
         $transaction->commit();
-        $this->assertFalse($transaction->isActive);
-        $this->assertNull($connection->transaction);
+        $this->assertFalse($transaction->getIsActive());
+        $this->assertNull($connection->getTransaction());
         $this->assertEquals(1, $connection->createCommand("SELECT COUNT(*) FROM profile WHERE description = 'test transaction';")->queryScalar());
     }
 
@@ -113,7 +81,7 @@ class ConnectionTest extends DatabaseTestCase
     {
         $connection = $this->getConnection(true);
         $connection->transaction(function () use ($connection) {
-            $connection->createCommand()->insert('profile', ['description' => 'test transaction shortcut'])->execute();
+            $connection->createCommand("INSERT INTO profile (description) VALUES ('test transaction shortcut')")->execute();
             throw new \Exception('Exception in transaction shortcut');
         });
         $profilesCount = $connection->createCommand("SELECT COUNT(*) FROM profile WHERE description = 'test transaction shortcut';")->queryScalar();
@@ -124,7 +92,7 @@ class ConnectionTest extends DatabaseTestCase
     {
         $connection = $this->getConnection(true);
         $result = $connection->transaction(function () use ($connection) {
-            $connection->createCommand()->insert('profile', ['description' => 'test transaction shortcut'])->execute();
+            $connection->createCommand("INSERT INTO profile (description) VALUES ('test transaction shortcut')")->execute();
             return true;
         });
         $this->assertTrue($result, 'transaction shortcut valid value should be returned from callback');
@@ -136,7 +104,7 @@ class ConnectionTest extends DatabaseTestCase
     {
         $connection = $this->getConnection(true);
         $result = $connection->transaction(function (Connection $db) {
-            $db->createCommand()->insert('profile', ['description' => 'test transaction shortcut'])->execute();
+            $db->createCommand("INSERT INTO profile (description) VALUES ('test transaction shortcut')")->execute();
             return true;
         }, Transaction::READ_UNCOMMITTED);
         $this->assertTrue($result, 'transaction shortcut valid value should be returned from callback');

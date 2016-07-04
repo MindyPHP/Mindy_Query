@@ -10,8 +10,8 @@ before_script:
   - composer self-update
   - composer install
   - composer install --dev --no-interaction
-  - mysql -e 'CREATE DATABASE yiitest;';
-  - psql -U postgres -c 'CREATE DATABASE yiitest;';
+  - mysql -e 'CREATE DATABASE test;';
+  - psql -U postgres -c 'CREATE DATABASE test;';
 
 install:
   - Tests/travis/cubrid-setup.sh

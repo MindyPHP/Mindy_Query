@@ -10,8 +10,8 @@ return [
     ],
     'mysql' => [
         'class' => '\Mindy\Query\Connection',
-        'dsn' => 'mysql:host=127.0.0.1;dbname=yiitest',
-        'username' => 'travis',
+        'dsn' => 'mysql:host=127.0.0.1;dbname=test',
+        'username' => 'root',
         'password' => '',
         'fixture' => __DIR__ . '/data/mysql.sql',
     ],
@@ -29,36 +29,9 @@ return [
     ],
     'pgsql' => [
         'class' => '\Mindy\Query\Connection',
-        'dsn' => 'pgsql:host=localhost;dbname=yiitest;port=5432;',
-        'username' => 'postgres',
-        'password' => 'postgres',
+        'dsn' => 'pgsql:host=localhost;dbname=test;port=5432;',
+        'username' => 'root',
+        'password' => '',
         'fixture' => __DIR__ . '/data/postgres.sql',
     ],
-//    'elasticsearch' => [
-//        'dsn' => 'elasticsearch://localhost:9200'
-//    ],
-//    'redis' => [
-//        'hostname' => 'localhost',
-//        'port' => 6379,
-//        'database' => 0,
-//        'password' => null,
-//    ],
-//    'sphinx' => [
-//        'sphinx' => [
-//            'dsn' => 'mysql:host=127.0.0.1;port=9306;',
-//            'username' => 'travis',
-//            'password' => '',
-//        ],
-//        'db' => [
-//            'dsn' => 'mysql:host=127.0.0.1;dbname=yiitest',
-//            'username' => 'travis',
-//            'password' => '',
-//            'fixture' => __DIR__ . '/data/sphinx/source.sql',
-//        ],
-//    ],
-//    'mongodb' => [
-//        'dsn' => 'mongodb://travis:test@localhost:27017',
-//        'defaultDatabaseName' => 'yii2test',
-//        'options' => [],
-//    ]
 ];

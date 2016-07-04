@@ -13,7 +13,8 @@
         "mindy/exception": "*",
         "mindy/cache": "*",
         "mindy/logger": "*",
-        "mindy/event": "*"
+        "mindy/event": "*",
+        "mindy/query_builder": "dev-master"
     },
     "require-dev": {
         "satooshi/php-coveralls": "dev-master"

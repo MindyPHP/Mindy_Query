@@ -2,14 +2,24 @@
 
 namespace Mindy\Query;
 
+use PDO;
+
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerInterface;
+
 use Mindy\Cache\Cache;
 use Mindy\Exception\InvalidConfigException;
 use Mindy\Exception\NotSupportedException;
 use Mindy\Helper\Creator;
 use Mindy\Helper\Traits\Accessors;
 use Mindy\Helper\Traits\Configurator;
-use PDO;
+use Mindy\Query\Exception\Exception;
+use Mindy\QueryBuilder\LookupBuilder\Legacy;
+use Mindy\QueryBuilder\QueryBuilder;
 
+use Mindy\QueryBuilder\Mysql\Adapter as MysqlAdapter;
+use Mindy\QueryBuilder\Sqlite\Adapter as SqliteAdapter;
+use Mindy\QueryBuilder\Pgsql\Adapter as PgsqlAdapter;
 
 /**
  * Connection represents a connection to a database via [PDO](http://www.php.net/manual/en/ref.pdo.php).
@@ -101,7 +111,7 @@ use PDO;
  * @since 2.0
  * @package Mindy\Query
  */
-class Connection
+class Connection implements LoggerAwareInterface
 {
     use Accessors, Configurator;
 
@@ -240,16 +250,16 @@ class Connection
      * [[Schema]] class to support DBMS that is not supported by Yii.
      */
     public $schemaMap = [
-        'pgsql' => 'Mindy\Query\Pgsql\Schema', // PostgreSQL
-        'mysqli' => 'Mindy\Query\Mysql\Schema', // MySQL
-        'mysql' => 'Mindy\Query\Mysql\Schema', // MySQL
-        'sqlite' => 'Mindy\Query\Sqlite\Schema', // sqlite 3
-        'sqlite2' => 'Mindy\Query\Sqlite\Schema', // sqlite 2
-        'sqlsrv' => 'Mindy\Query\Mssql\Schema', // newer MSSQL driver on MS Windows hosts
-        'oci' => 'Mindy\Query\Oci\Schema', // Oracle driver
-        'mssql' => 'Mindy\Query\Mssql\Schema', // older MSSQL driver on MS Windows hosts
-        'dblib' => 'Mindy\Query\Mssql\Schema', // dblib drivers on GNU/Linux (and maybe other OSes) hosts
-        'cubrid' => 'Mindy\Query\Cubrid\Schema', // CUBRID
+        'pgsql' => 'Mindy\Query\Database\Pgsql\Schema', // PostgreSQL
+        'mysqli' => 'Mindy\Query\Database\Mysql\Schema', // MySQL
+        'mysql' => 'Mindy\Query\Database\Mysql\Schema', // MySQL
+        'sqlite' => 'Mindy\Query\Database\Sqlite\Schema', // sqlite 3
+        'sqlite2' => 'Mindy\Query\Database\Sqlite\Schema', // sqlite 2
+        'sqlsrv' => 'Mindy\Query\Database\Mssql\Schema', // newer MSSQL driver on MS Windows hosts
+        'oci' => 'Mindy\Query\Database\Oci\Schema', // Oracle driver
+        'mssql' => 'Mindy\Query\Database\Mssql\Schema', // older MSSQL driver on MS Windows hosts
+        'dblib' => 'Mindy\Query\Database\Mssql\Schema', // dblib drivers on GNU/Linux (and maybe other OSes) hosts
+        'cubrid' => 'Mindy\Query\Database\Cubrid\Schema', // CUBRID
     ];
     /**
      * @var string Custom PDO wrapper class. If not set, it will use "PDO" or "yii\db\mssql\PDO" when MSSQL is used.
@@ -261,86 +271,17 @@ class Connection
      */
     public $enableSavepoint = true;
     /**
-     * @var Cache|string the cache object or the ID of the cache application component that is used to store
-     * the health status of the DB servers specified in [[masters]] and [[slaves]].
-     * This is used only when read/write splitting is enabled or [[masters]] is not empty.
-     */
-    public $serverStatusCache = 'cache';
-    /**
-     * @var integer the retry interval in seconds for dead servers listed in [[masters]] and [[slaves]].
-     * This is used together with [[serverStatusCache]].
-     */
-    public $serverRetryInterval = 600;
-    /**
-     * @var boolean whether to enable read/write splitting by using [[slaves]] to read data.
-     * Note that if [[slaves]] is empty, read/write splitting will NOT be enabled no matter what value this property takes.
-     */
-    public $enableSlaves = true;
-    /**
-     * @var array list of slave connection configurations. Each configuration is used to create a slave DB connection.
-     * When [[enableSlaves]] is true, one of these configurations will be chosen and used to create a DB connection
-     * for performing read queries only.
-     * @see enableSlaves
-     * @see slaveConfig
-     */
-    public $slaves = [];
-    /**
-     * @var array the configuration that should be merged with every slave configuration listed in [[slaves]].
-     * For example,
-     *
-     * ```php
-     * [
-     *     'username' => 'slave',
-     *     'password' => 'slave',
-     *     'attributes' => [
-     *         // use a smaller connection timeout
-     *         PDO::ATTR_TIMEOUT => 10,
-     *     ],
-     * ]
-     * ```
-     */
-    public $slaveConfig = [];
-    /**
-     * @var array list of master connection configurations. Each configuration is used to create a master DB connection.
-     * When [[open()]] is called, one of these configurations will be chosen and used to create a DB connection
-     * which will be used by this object.
-     * Note that when this property is not empty, the connection setting (e.g. "dsn", "username") of this object will
-     * be ignored.
-     * @see masterConfig
-     */
-    public $masters = [];
-    /**
-     * @var array the configuration that should be merged with every master configuration listed in [[masters]].
-     * For example,
-     *
-     * ```php
-     * [
-     *     'username' => 'master',
-     *     'password' => 'master',
-     *     'attributes' => [
-     *         // use a smaller connection timeout
-     *         PDO::ATTR_TIMEOUT => 10,
-     *     ],
-     * ]
-     * ```
-     */
-    public $masterConfig = [];
-    /**
      * @var Transaction the currently active transaction
      */
     private $_transaction;
     /**
-     * @var Schema the database schema
+     * @var Schema\Schema the database schema
      */
     private $_schema;
     /**
      * @var string driver name
      */
     private $_driverName;
-    /**
-     * @var Connection the currently active slave connection
-     */
-    private $_slave = false;
     /**
      * @var array query cache parameters for the [[cache()]] calls
      */
@@ -349,6 +290,12 @@ class Connection
      * @var \Mindy\Event\EventManager
      */
     private $_eventManager;
+
+    private $_adapter;
+    /**
+     * @var \Psr\Log\LoggerInterface
+     */
+    private $_logger;
 
     /**
      * Returns a value indicating whether the DB connection is established.
@@ -444,7 +391,7 @@ class Connection
      * @param integer $duration the preferred caching duration. If null, it will be ignored.
      * @param \Mindy\Cache\Dependency $dependency the preferred caching dependency. If null, it will be ignored.
      * @return array the current query cache information, or null if query cache is not enabled.
--     */
+     * -     */
     public function getQueryCacheInfo($duration, $dependency)
     {
         if (!$this->enableQueryCache) {
@@ -486,15 +433,6 @@ class Connection
         if ($this->pdo !== null) {
             return;
         }
-        if (!empty($this->masters)) {
-            $db = $this->openFromPool($this->masters, $this->masterConfig);
-            if ($db !== null) {
-                $this->pdo = $db->pdo;
-                return;
-            } else {
-                throw new InvalidConfigException('None of the master DB servers is available.');
-            }
-        }
         if (empty($this->dsn)) {
             throw new InvalidConfigException('Connection::dsn cannot be empty.');
         }
@@ -523,10 +461,6 @@ class Connection
             $this->_schema = null;
             $this->_transaction = null;
         }
-        if ($this->_slave) {
-            $this->_slave->close();
-            $this->_slave = null;
-        }
     }
 
     /**
@@ -544,9 +478,9 @@ class Connection
             if (($pos = strpos($this->dsn, ':')) !== false) {
                 $driver = strtolower(substr($this->dsn, 0, $pos));
                 if ($driver === 'mssql' || $driver === 'dblib' || $driver === 'sqlsrv') {
-                    $pdoClass = 'Mindy\Query\Mssql\PDO';
+                    $pdoClass = 'Mindy\Query\Database\Mssql\PDO';
                 } elseif ($driver == 'sqlite' || $driver == 'sqlite2') {
-                    $pdoClass = 'Mindy\Query\Sqlite\PDO';
+                    $pdoClass = 'Mindy\Query\Database\Sqlite\PDO';
                 }
             }
         }
@@ -588,32 +522,53 @@ class Connection
 
     protected function getLogger()
     {
-        static $logger;
-        if ($logger === null) {
-            if (class_exists('\Mindy\Base\Mindy')) {
-                $logger = \Mindy\Base\Mindy::app()->logger;
+        if ($this->_logger === null) {
+            if (class_exists('\Mindy\Base\Mindy') && \Mindy\Base\Mindy::app()) {
+                $this->_logger = \Mindy\Base\Mindy::app()->logger;
             } else {
-                $logger = new \Mindy\Logger\LoggerManager;
+                $this->_logger = new DummyLogger;
             }
         }
-        return $logger;
+        return $this->_logger;
     }
 
     protected function getEventManager()
     {
-        if ($this->_eventManager === null) {
-            if (class_exists('\Mindy\Base\Mindy') && \Mindy\Base\Mindy::app()) {
-                $this->_eventManager = \Mindy\Base\Mindy::app()->getComponent('signal');
-            } else {
-                $this->_eventManager = new \Mindy\Event\EventManager();
+        if (class_exists('\Mindy\Base\Mindy') && \Mindy\Base\Mindy::app()) {
+            return \Mindy\Base\Mindy::app()->getComponent('signal');
+        } else {
+            static $signal;
+            if ($signal === null) {
+                $signal = new class
+                {
+                    public function __call($name, $arguments)
+                    {
+                        return null;
+                    }
+                };
             }
+            return $signal;
         }
-        return $this->_eventManager;
     }
 
     public function trigger($eventType)
     {
         $this->getEventManager()->send($this, $eventType);
+    }
+
+    protected function getLookupFetchCallback()
+    {
+        return null;
+    }
+
+    protected function getLookupBuilder()
+    {
+        return new Legacy();
+    }
+
+    public function getQueryBuilder()
+    {
+        return new QueryBuilder($this->getAdapter(), $this->getLookupBuilder(), $this->getLookupFetchCallback());
     }
 
     /**
@@ -624,11 +579,10 @@ class Connection
      */
     public function createCommand($sql = null, $params = [])
     {
-        $command = new Command([
+        return new Command([
             'db' => $this,
             'sql' => $sql,
         ]);
-        return $command->bindValues($params);
     }
 
     /**
@@ -650,7 +604,7 @@ class Connection
     {
         $this->open();
         if (($transaction = $this->getTransaction()) === null) {
-            $transaction = $this->_transaction = new Transaction(['db' => $this]);
+            $transaction = $this->_transaction = new Transaction($this);
         }
         $transaction->begin($isolationLevel);
         return $transaction;
@@ -670,7 +624,7 @@ class Connection
         $transaction = $this->beginTransaction($isolationLevel);
         try {
             $result = call_user_func($callback, $this);
-            if ($transaction->isActive) {
+            if ($transaction->getIsActive()) {
                 $transaction->commit();
             }
         } catch (\Exception $e) {
@@ -682,7 +636,7 @@ class Connection
 
     /**
      * Returns the schema information for the database opened by this connection.
-     * @return Schema the schema information for the database opened by this connection.
+     * @return Schema\Schema the schema information for the database opened by this connection.
      * @throws NotSupportedException if there is no support for the current driver type
      */
     public function getSchema()
@@ -693,21 +647,14 @@ class Connection
             $driver = $this->getDriverName();
             if (isset($this->schemaMap[$driver])) {
                 $config = !is_array($this->schemaMap[$driver]) ? ['class' => $this->schemaMap[$driver]] : $this->schemaMap[$driver];
-                $config['db'] = $this;
-                return $this->_schema = Creator::createObject($config);
+                return $this->_schema = Creator::createObject(array_merge($config, [
+                    'connection' => $this,
+                    'adapter' => $this->getAdapter()
+                ]));
             } else {
                 throw new NotSupportedException("Connection does not support reading schema information for '$driver' DBMS.");
             }
         }
-    }
-
-    /**
-     * Returns the query builder for the current DB connection.
-     * @return \Mindy\Query\Pgsql\Lookup|\Mindy\Query\Mysql\Lookup|QueryBuilder the query builder for the current DB connection.
-     */
-    public function getQueryBuilder()
-    {
-        return $this->getSchema()->getQueryBuilder();
     }
 
     /**
@@ -733,109 +680,16 @@ class Connection
     }
 
     /**
-     * Quotes a string value for use in a query.
-     * Note that if the parameter is not a string, it will be returned without change.
-     * @param string $value string to be quoted
-     * @return string the properly quoted string
-     * @see http://www.php.net/manual/en/function.PDO-quote.php
-     */
-    public function quoteValue($value)
-    {
-        return $this->getSchema()->quoteValue($value);
-    }
-
-    /**
-     * Quotes a table name for use in a query.
-     * If the table name contains schema prefix, the prefix will also be properly quoted.
-     * If the table name is already quoted or contains special characters including '(', '[[' and '{{',
-     * then this method will do nothing.
-     * @param string $name table name
-     * @return string the properly quoted table name
-     */
-    public function quoteTableName($name)
-    {
-        return $this->getSchema()->quoteTableName($name);
-    }
-
-    /**
-     * Quotes a column name for use in a query.
-     * If the column name contains prefix, the prefix will also be properly quoted.
-     * If the column name is already quoted or contains special characters including '(', '[[' and '{{',
-     * then this method will do nothing.
-     * @param string $name column name
-     * @return string the properly quoted column name
-     */
-    public function quoteColumnName($name)
-    {
-        return $this->getSchema()->quoteColumnName($name);
-    }
-
-    /**
-     * Processes a SQL statement by quoting table and column names that are enclosed within double brackets.
-     * Tokens enclosed within double curly brackets are treated as table names, while
-     * tokens enclosed within double square brackets are column names. They will be quoted accordingly.
-     * Also, the percentage character "%" at the beginning or ending of a table name will be replaced
-     * with [[tablePrefix]].
-     * @param string $sql the SQL to be quoted
-     * @return string the quoted SQL
-     */
-    public function quoteSql($sql)
-    {
-        return preg_replace_callback(
-            '/(\\{\\{(%?[\w\-\. ]+%?)\\}\\}|\\[\\[([\w\-\. ]+)\\]\\])/',
-            function ($matches) {
-                if (isset($matches[3])) {
-                    return $this->quoteColumnName($matches[3]);
-                } else {
-                    return str_replace('%', $this->tablePrefix, $this->quoteTableName($matches[2]));
-                }
-            },
-            $sql
-        );
-    }
-
-    /**
      * Returns the name of the DB driver. Based on the the current [[dsn]], in case it was not set explicitly
      * by an end user.
      * @return string name of the DB driver
      */
     public function getDriverName()
     {
-        if ($this->_driverName === null) {
-            if (($pos = strpos($this->dsn, ':')) !== false) {
-                $this->_driverName = strtolower(substr($this->dsn, 0, $pos));
-            } else {
-                $this->_driverName = strtolower($this->getSlavePdo()->getAttribute(PDO::ATTR_DRIVER_NAME));
-            }
+        if ($this->_driverName === null && ($pos = strpos($this->dsn, ':')) !== false) {
+            $this->_driverName = strtolower(substr($this->dsn, 0, $pos));
         }
         return $this->_driverName;
-    }
-
-    /**
-     * Changes the current driver name.
-     * @param string $driverName name of the DB driver
-     */
-    public function setDriverName($driverName)
-    {
-        $this->_driverName = strtolower($driverName);
-    }
-
-    /**
-     * Returns the PDO instance for the currently active slave connection.
-     * When [[enableSlaves]] is true, one of the slaves will be used for read queries, and its PDO instance
-     * will be returned by this method.
-     * @param boolean $fallbackToMaster whether to return a master PDO in case none of the slave connections is available.
-     * @return PDO the PDO instance for the currently active slave connection. Null is returned if no slave connection
-     * is available and `$fallbackToMaster` is false.
-     */
-    public function getSlavePdo($fallbackToMaster = true)
-    {
-        $db = $this->getSlave(false);
-        if ($db === null) {
-            return $fallbackToMaster ? $this->getMasterPdo() : null;
-        } else {
-            return $db->pdo;
-        }
     }
 
     /**
@@ -843,100 +697,42 @@ class Connection
      * This method will open the master DB connection and then return [[pdo]].
      * @return PDO the PDO instance for the currently active master connection.
      */
-    public function getMasterPdo()
+    public function getPdo()
     {
         $this->open();
         return $this->pdo;
     }
 
-    /**
-     * Returns the currently active slave connection.
-     * If this method is called the first time, it will try to open a slave connection when [[enableSlaves]] is true.
-     * @param boolean $fallbackToMaster whether to return a master connection in case there is no slave connection available.
-     * @return Connection the currently active slave connection. Null is returned if there is slave available and
-     * `$fallbackToMaster` is false.
-     */
-    public function getSlave($fallbackToMaster = true)
+    public function getAdapter()
     {
-        if (!$this->enableSlaves) {
-            return $fallbackToMaster ? $this : null;
+        if ($this->_adapter === null) {
+            $driverName = $this->getDriverName();
+            switch ($driverName) {
+                case 'mysql':
+                    $adapter = new MysqlAdapter($this->pdo);
+                    break;
+                case 'sqlite':
+                    $adapter = new SqliteAdapter($this->pdo);
+                    break;
+                case 'pgsql':
+                    $adapter = new PgsqlAdapter($this->pdo);
+                    break;
+                default:
+                    throw new Exception('Unknown driver');
+            }
+            $this->_adapter = $adapter;
         }
-        if ($this->_slave === false) {
-            $this->_slave = $this->openFromPool($this->slaves, $this->slaveConfig);
-        }
-        return $this->_slave === null && $fallbackToMaster ? $this : $this->_slave;
+        return $this->_adapter;
     }
 
     /**
-     * Executes the provided callback by using the master connection.
+     * Sets a logger instance on the object
      *
-     * This method is provided so that you can temporarily force using the master connection to perform
-     * DB operations even if they are read queries. For example,
-     *
-     * ```php
-     * $result = $db->useMaster(function ($db) {
-     *     return $db->createCommand('SELECT * FROM user LIMIT 1')->queryOne();
-     * });
-     * ```
-     *
-     * @param callable $callback a PHP callable to be executed by this method. Its signature is
-     * `function (Connection $db)`. Its return value will be returned by this method.
-     * @return mixed the return value of the callback
+     * @param LoggerInterface $logger
+     * @return null
      */
-    public function useMaster(callable $callback)
+    public function setLogger(LoggerInterface $logger)
     {
-        $enableSlave = $this->enableSlaves;
-        $this->enableSlaves = false;
-        $result = call_user_func($callback, $this);
-        $this->enableSlaves = $enableSlave;
-        return $result;
-    }
-
-    /**
-     * Opens the connection to a server in the pool.
-     * This method implements the load balancing among the given list of the servers.
-     * @param array $pool the list of connection configurations in the server pool
-     * @param array $sharedConfig the configuration common to those given in `$pool`.
-     * @return Connection the opened DB connection, or null if no server is available
-     * @throws InvalidConfigException if a configuration does not specify "dsn"
-     */
-    protected function openFromPool(array $pool, array $sharedConfig)
-    {
-        if (empty($pool)) {
-            return null;
-        }
-        if (!isset($sharedConfig['class'])) {
-            $sharedConfig['class'] = get_class($this);
-        }
-        if (is_string($this->serverStatusCache) && class_exists('\Mindy\Base\Mindy')) {
-            $cache = \Mindy\Base\Mindy::app()->getComponent($this->serverStatusCache, false);
-        } else {
-            $cache = $this->serverStatusCache;
-        }
-        shuffle($pool);
-        foreach ($pool as $config) {
-            $config = array_merge($sharedConfig, $config);
-            if (empty($config['dsn'])) {
-                throw new InvalidConfigException('The "dsn" option must be specified.');
-            }
-            $key = [__METHOD__, $config['dsn']];
-            if ($cache instanceof Cache && $cache->get($key)) {
-                // should not try this dead server now
-                continue;
-            }
-            /* @var $db Connection */
-            $db = Creator::createObject($config);
-            try {
-                $db->open();
-                return $db;
-            } catch (\Exception $e) {
-                $this->getLogger()->warning("Connection ({$config['dsn']}) failed: " . $e->getMessage(), ['method' => __METHOD__]);
-                if ($cache instanceof Cache) {
-                    // mark this server as dead and only retry it after the specified interval
-                    $cache->set($key, 1, $this->serverRetryInterval);
-                }
-            }
-        }
-        return null;
+        $this->_logger = $logger;
     }
 }

@@ -3,9 +3,7 @@
 namespace Mindy\Query;
 
 use Mindy\Helper\Creator;
-use Mindy\Helper\Traits\Accessors;
-use Mindy\Helper\Traits\Configurator;
-use Mindy\Query\Exception\UnknownDatabase;
+use Mindy\Query\Exception\Exception;
 
 /**
  * Class ConnectionManager
@@ -13,27 +11,25 @@ use Mindy\Query\Exception\UnknownDatabase;
  */
 class ConnectionManager
 {
-    use Accessors, Configurator;
-    /**
-     * @var array
-     */
-    public $databases = [];
-    /**
-     * @var string
-     */
-    public static $defaultDatabase = 'default';
+    const DEFAULT_CONNECTION_NAME = 'default';
     /**
      * @var Connection[]
      */
-    protected static $_databases = [];
+    private $_connections = [];
 
-    public function init()
+    /**
+     * ConnectionManager constructor.
+     * @param array $options
+     */
+    public function __construct(array $options = [])
     {
-        foreach ($this->databases as $name => $config) {
-            if (is_array($config)) {
-                self::$_databases[$name] = Creator::createObject($config);
-            } elseif ($config instanceof Connection) {
-                self::$_databases[$name] = $config;
+        foreach ($options as $key => $value) {
+            if (in_array($key, ['databases', 'connections']) && is_array($value)) {
+                foreach ($value as $name => $config) {
+                    $this->_connections[$name] = $config instanceof Connection ? $config : Creator::createObject($config);
+                }
+            } else {
+                $this->_connections[$key] = $value instanceof Connection ? $value : Creator::createObject($value);
             }
         }
     }
@@ -41,32 +37,31 @@ class ConnectionManager
     /**
      * @param null $db
      * @return Connection
-     * @throws UnknownDatabase
+     * @throws Exception
      */
-    public static function getDb($db = null)
+    public function getConnection($db = null)
     {
         if ($db instanceof Connection) {
             return $db;
         }
 
-        if ($db === null) {
-            $db = self::$defaultDatabase;
+        if (empty($db)) {
+            $db = self::DEFAULT_CONNECTION_NAME;
         }
 
-        if (!isset(self::$_databases[$db])) {
-            throw new UnknownDatabase();
+        if ($this->hasConnection($db)) {
+            return $this->_connections[$db];
+        } else {
+            throw new Exception('Unknown connection');
         }
-
-        return self::$_databases[$db];
     }
 
-    public static function setDefaultDatabase($name)
+    /**
+     * @param $name
+     * @return bool
+     */
+    public function hasConnection($name)
     {
-        self::$defaultDatabase = $name;
-    }
-
-    public static function setDb($name, Connection $db)
-    {
-        self::$_databases[$name] = $db;
+        return isset($this->_connections[$name]);
     }
 }

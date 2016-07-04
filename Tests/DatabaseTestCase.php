@@ -13,31 +13,34 @@
 use Mindy\Helper\Creator;
 use Mindy\Query\Connection;
 use Mindy\Query\ConnectionManager;
+use Mindy\QueryBuilder\LegacyLookupBuilder;
+use Mindy\QueryBuilder\LookupBuilder\Legacy;
+use Mindy\QueryBuilder\QueryBuilder;
 
 class DatabaseTestCase extends TestCase
 {
-    public static $params;
-    protected $database;
+    /**
+     * @var ConnectionManager
+     */
+    protected $cm;
+
     protected $driverName = 'mysql';
 
-    /**
-     * @var Connection
-     */
-    protected $db;
+    protected $config = [];
+
+    private static $params = [];
 
     public function setUp()
     {
         parent::setUp();
 
         if (is_file(__DIR__ . '/config_local.php')) {
-            $databases = include(__DIR__ . '/config_local.php');
+            $this->config = include(__DIR__ . '/config_local.php');
         } else {
-            $databases = include(__DIR__ . '/config.php');
+            $this->config = include(__DIR__ . '/config.php');
         }
 
-        new ConnectionManager(['databases' => $databases]);
-
-        $this->database = $databases[$this->driverName];
+        $this->cm = new ConnectionManager($this->config);
         $pdo_database = 'pdo_' . $this->driverName;
 
         if (!extension_loaded('pdo') || !extension_loaded($pdo_database)) {
@@ -47,9 +50,7 @@ class DatabaseTestCase extends TestCase
 
     protected function tearDown()
     {
-        if ($this->db) {
-            $this->db->close();
-        }
+        $this->cm->getConnection($this->driverName)->close();
     }
 
     /**
@@ -59,32 +60,15 @@ class DatabaseTestCase extends TestCase
      */
     public function getConnection($reset = true, $open = true)
     {
-        if (!$reset && $this->db) {
-            return $this->db;
+        if (!$reset) {
+            return $this->cm->getConnection($this->driverName);
         }
-        $config = $this->database;
-        if (isset($config['fixture'])) {
-            $fixture = $config['fixture'];
-            unset($config['fixture']);
-        } else {
-            $fixture = null;
-        }
-        try {
-            $this->db = $this->prepareDatabase($config, $fixture, $open);
-            ConnectionManager::setDb($this->driverName, $this->db);
-        } catch (\Exception $e) {
-            $this->markTestSkipped("Something wrong when preparing database: " . $e->getMessage());
-        }
-        return $this->db;
+        return $this->prepareDatabase($this->config[$this->driverName]['fixture'], $open);
     }
 
-    public function prepareDatabase($config, $fixture, $open = true)
+    public function prepareDatabase($fixture, $open = true)
     {
-        if (!isset($config['class'])) {
-            $config['class'] = 'Mindy\Query\Connection';
-        }
-        /* @var $db \Mindy\Query\Connection */
-        $db = Creator::createObject($config);
+        $db = $this->cm->getConnection($this->driverName);
         if (!$open) {
             return $db;
         }
@@ -115,5 +99,37 @@ class DatabaseTestCase extends TestCase
             static::$params = require(__DIR__ . '/config.php');
         }
         return isset(static::$params[$name]) ? static::$params[$name] : $default;
+    }
+
+    protected function getAdapter()
+    {
+        switch ($this->driverName) {
+            case "sqlite":
+                return new \Mindy\QueryBuilder\Sqlite\Adapter;
+            case "pgsql":
+                return new \Mindy\QueryBuilder\Pgsql\Adapter;
+            case "mysql":
+                return new \Mindy\QueryBuilder\Mysql\Adapter;
+        }
+
+        throw new Exception('Unknown driver');
+    }
+
+    protected function getSchema()
+    {
+        $connection = $this->getConnection();
+        if (isset($connection->schemaMap[$this->driverName])) {
+            $schemaClass = $connection->schemaMap[$this->driverName];
+            return new $schemaClass($connection);
+        }
+        throw new Exception('Unknown driver');
+    }
+
+    protected function getQueryBuilder()
+    {
+        $adapter = $this->getAdapter();
+        $lookupBuilder = new Legacy;
+        $schema = $this->getSchema();
+        return new QueryBuilder($adapter, $lookupBuilder, $schema);
     }
 }

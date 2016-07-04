@@ -2,9 +2,6 @@
 
 namespace Mindy\Query;
 
-use Mindy\Helper\Traits\Accessors;
-use Mindy\Helper\Traits\Configurator;
-
 /**
  * Expression represents a DB expression that does not need escaping or quoting.
  * When an Expression object is embedded within a SQL statement or fragment,
@@ -24,8 +21,6 @@ use Mindy\Helper\Traits\Configurator;
  */
 class Expression
 {
-    use Accessors, Configurator;
-
     /**
      * @var string the DB expression
      */
@@ -47,8 +42,9 @@ class Expression
     {
         $this->expression = $expression;
         $this->params = $params;
-        $this->configure($config);
-        $this->init();
+        foreach ($config as $key => $value) {
+            $this->{$key} = $value;
+        }
     }
 
     /**

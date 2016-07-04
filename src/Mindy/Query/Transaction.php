@@ -2,10 +2,6 @@
 
 namespace Mindy\Query;
 
-use Mindy\Exception\InvalidConfigException;
-use Mindy\Helper\Traits\Accessors;
-use Mindy\Helper\Traits\Configurator;
-
 /**
  * Transaction represents a DB transaction.
  *
@@ -35,8 +31,6 @@ use Mindy\Helper\Traits\Configurator;
  */
 class Transaction
 {
-    use Accessors, Configurator;
-
     /**
      * A constant representing the transaction isolation level `READ UNCOMMITTED`.
      * @see http://en.wikipedia.org/wiki/Isolation_%28database_systems%29#Isolation_levels
@@ -65,6 +59,11 @@ class Transaction
      * @var integer the nesting level of the transaction. 0 means the outermost level.
      */
     private $_level = 0;
+
+    public function __construct(Connection $db)
+    {
+        $this->db = $db;
+    }
 
     protected function getLogger()
     {
@@ -109,9 +108,6 @@ class Transaction
      */
     public function begin($isolationLevel = null)
     {
-        if ($this->db === null) {
-            throw new InvalidConfigException('Transaction::db must be set.');
-        }
         $this->db->open();
         if ($this->_level == 0) {
             if ($isolationLevel !== null) {

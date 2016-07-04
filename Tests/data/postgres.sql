@@ -1,6 +1,6 @@
 /**
  * This is the database schema for testing PostgreSQL support of yii Active Record.
- * To test this feature, you need to create a database named 'yiitest' on 'localhost'
+ * To test this feature, you need to create a database named 'test' on 'localhost'
  * and create an account 'postgres/postgres' which owns this test database.
  */
 

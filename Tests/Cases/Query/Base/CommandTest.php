@@ -7,42 +7,12 @@ use Mindy\Query\DataReader;
  * @group db
  * @group mysql
  */
-class CommandTest extends DatabaseTestCase
+abstract class CommandTest extends DatabaseTestCase
 {
     public function testConstruct()
     {
-        $db = $this->getConnection(false);
-
-        // null
-        $command = $db->createCommand();
-        $this->assertEquals(null, $command->sql);
-
-        // string
         $sql = 'SELECT * FROM customer';
-        $command = $db->createCommand($sql);
-        $this->assertEquals($sql, $command->sql);
-    }
-
-    public function testGetSetSql()
-    {
-        $db = $this->getConnection(false);
-
-        $sql = 'SELECT * FROM customer';
-        $command = $db->createCommand($sql);
-        $this->assertEquals($sql, $command->sql);
-
-        $sql2 = 'SELECT * FROM order';
-        $command->sql = $sql2;
-        $this->assertEquals($sql2, $command->sql);
-    }
-
-    public function testAutoQuoting()
-    {
-        $db = $this->getConnection(false);
-
-        $sql = 'SELECT [[id]], [[t.name]] FROM {{customer}} t';
-        $command = $db->createCommand($sql);
-        $this->assertEquals("SELECT `id`, `t`.`name` FROM `customer` t", $command->sql);
+        $this->assertEquals($sql, $this->getAdapter()->quoteSql($sql));
     }
 
     public function testPrepareCancel()
@@ -70,154 +40,99 @@ class CommandTest extends DatabaseTestCase
         $this->assertEquals(1, $command->queryScalar());
 
         $command = $db->createCommand('bad SQL');
-        $this->setExpectedException('\Mindy\Query\Exception');
+        $this->expectException(\Mindy\Query\Exception\Exception::class);
         $command->execute();
     }
 
-    public function testQuery()
+    public function testQueryAll()
     {
-        $db = $this->getConnection();
-
-        // query
-        $sql = 'SELECT * FROM customer';
-        $reader = $db->createCommand($sql)->query();
-        $this->assertTrue($reader instanceof DataReader);
-
-        // queryAll
-        $rows = $db->createCommand('SELECT * FROM customer')->queryAll();
+        $connection = $this->getConnection();
+        $rows = $connection->createCommand('SELECT * FROM customer')->queryAll();
         $this->assertEquals(3, count($rows));
         $row = $rows[2];
         $this->assertEquals(3, $row['id']);
         $this->assertEquals('user3', $row['name']);
 
-        $rows = $db->createCommand('SELECT * FROM customer WHERE id=10')->queryAll();
+        $rows = $connection->createCommand('SELECT * FROM customer WHERE id=10')->queryAll();
         $this->assertEquals([], $rows);
+    }
 
-        // queryOne
-        $sql = 'SELECT * FROM customer ORDER BY id';
-        $row = $db->createCommand($sql)->queryOne();
+    public function testQuery()
+    {
+        $reader = $this->getConnection()->createCommand('SELECT * FROM customer')->query();
+        $this->assertTrue($reader instanceof DataReader);
+    }
+
+    public function testQueryOne()
+    {
+        $connection = $this->getConnection();
+        $row = $connection->createCommand('SELECT * FROM customer ORDER BY id')->queryOne();
         $this->assertEquals(1, $row['id']);
         $this->assertEquals('user1', $row['name']);
 
-        $sql = 'SELECT * FROM customer ORDER BY id';
-        $command = $db->createCommand($sql);
+        $command = $connection->createCommand('SELECT * FROM customer ORDER BY id');
         $command->prepare();
         $row = $command->queryOne();
         $this->assertEquals(1, $row['id']);
         $this->assertEquals('user1', $row['name']);
 
-        $sql = 'SELECT * FROM customer WHERE id=10';
-        $command = $db->createCommand($sql);
+        $command = $connection->createCommand('SELECT * FROM customer WHERE id=10');
         $this->assertFalse($command->queryOne());
+    }
 
-        // queryColumn
-        $sql = 'SELECT * FROM customer';
-        $column = $db->createCommand($sql)->queryColumn();
+    public function testQueryColumn()
+    {
+        $connection = $this->getConnection();
+        $column = $connection->createCommand('SELECT * FROM customer')->queryColumn();
         $this->assertEquals(range(1, 3), $column);
 
-        $command = $db->createCommand('SELECT id FROM customer WHERE id=10');
+        $command = $connection->createCommand('SELECT id FROM customer WHERE id=10');
         $this->assertEquals([], $command->queryColumn());
+    }
 
-        // queryScalar
-        $sql = 'SELECT * FROM customer ORDER BY id';
-        $this->assertEquals($db->createCommand($sql)->queryScalar(), 1);
+    public function testQueryScalar()
+    {
+        $connection = $this->getConnection();
+        $this->assertEquals($connection->createCommand('SELECT * FROM customer ORDER BY id')->queryScalar(), 1);
 
-        $sql = 'SELECT id FROM customer ORDER BY id';
-        $command = $db->createCommand($sql);
+        $command = $connection->createCommand('SELECT id FROM customer ORDER BY id');
         $command->prepare();
         $this->assertEquals(1, $command->queryScalar());
 
-        $command = $db->createCommand('SELECT id FROM customer WHERE id=10');
+        $command = $connection->createCommand('SELECT id FROM customer WHERE id=10');
         $this->assertFalse($command->queryScalar());
+    }
 
+    public function testQueryBad()
+    {
+        $db = $this->getConnection();
         $command = $db->createCommand('bad SQL');
-        $this->setExpectedException('\Mindy\Query\Exception');
+        $this->expectException(\Mindy\Query\Exception\Exception::class);
         $command->query();
     }
 
-    public function testBindParamValue()
+    public function testFetchAssoc()
     {
-        $db = $this->getConnection();
-
-        // bindParam
-        $sql = 'INSERT INTO customer(email, name, address) VALUES (:email, :name, :address)';
-        $command = $db->createCommand($sql);
-        $email = 'user4@example.com';
-        $name = 'user4';
-        $address = 'address4';
-        $command->bindParam(':email', $email);
-        $command->bindParam(':name', $name);
-        $command->bindParam(':address', $address);
-        $command->execute();
-
-        $sql = 'SELECT name FROM customer WHERE email=:email';
-        $command = $db->createCommand($sql);
-        $command->bindParam(':email', $email);
-        $this->assertEquals($name, $command->queryScalar());
-
-        $sql = 'INSERT INTO type (int_col, char_col, float_col, blob_col, numeric_col, bool_col) VALUES (:int_col, :char_col, :float_col, :blob_col, :numeric_col, :bool_col)';
-        $command = $db->createCommand($sql);
-        $intCol = 123;
-        $charCol = 'abc';
-        $floatCol = 1.23;
-        $blobCol = "\x10\x11\x12";
-        $numericCol = '1.23';
-        $boolCol = false;
-        $command->bindParam(':int_col', $intCol);
-        $command->bindParam(':char_col', $charCol);
-        $command->bindParam(':float_col', $floatCol);
-        $command->bindParam(':blob_col', $blobCol);
-        $command->bindParam(':numeric_col', $numericCol);
-        $command->bindParam(':bool_col', $boolCol);
-        $this->assertEquals(1, $command->execute());
-
-        $sql = 'SELECT * FROM type';
-        $row = $db->createCommand($sql)->queryOne();
-        $this->assertEquals($intCol, $row['int_col']);
-        if ($this->driverName == 'pgsql') {
-            $this->assertEquals($charCol, trim($row['char_col']));
-        } else {
-            $this->assertEquals($charCol, $row['char_col']);
-        }
-        $this->assertEquals($floatCol, $row['float_col']);
-        if (!is_resource($row['blob_col'])) {
-            $this->assertEquals($blobCol, $row['blob_col']);
-        }
-        $this->assertEquals($numericCol, $row['numeric_col']);
-
-        // bindValue
-        $sql = 'INSERT INTO customer(email, name, address) VALUES (:email, \'user5\', \'address5\')';
-        $command = $db->createCommand($sql);
-        $command->bindValue(':email', 'user5@example.com');
-        $command->execute();
-
-        $sql = 'SELECT email FROM customer WHERE name=:name';
-        $command = $db->createCommand($sql);
-        $command->bindValue(':name', 'user5');
-        $this->assertEquals('user5@example.com', $command->queryScalar());
-    }
-
-    public function testFetchMode()
-    {
-        $db = $this->getConnection();
-
-        // default: FETCH_ASSOC
-        $sql = 'SELECT * FROM customer';
-        $command = $db->createCommand($sql);
+        $connection = $this->getConnection();
+        $command = $connection->createCommand('SELECT * FROM customer');
         $result = $command->queryOne();
         $this->assertTrue(is_array($result) && isset($result['id']));
+    }
 
-        // FETCH_OBJ, customized via fetchMode property
-        $sql = 'SELECT * FROM customer';
-        $command = $db->createCommand($sql);
+    public function testFetchObj()
+    {
+        $connection = $this->getConnection();
+        $command = $connection->createCommand('SELECT * FROM customer');
         $command->fetchMode = \PDO::FETCH_OBJ;
         $result = $command->queryOne();
         $this->assertTrue(is_object($result));
+    }
 
-        // FETCH_NUM, customized in query method
-        $sql = 'SELECT * FROM customer';
-        $command = $db->createCommand($sql);
-        $result = $command->queryOne([], \PDO::FETCH_NUM);
+    public function testFetchNum()
+    {
+        $connection = $this->getConnection();
+        $command = $connection->createCommand('SELECT * FROM customer');
+        $result = $command->queryOne(\PDO::FETCH_NUM);
         $this->assertTrue(is_array($result) && isset($result[0]));
     }
 
