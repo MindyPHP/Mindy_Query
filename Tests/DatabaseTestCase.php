@@ -10,10 +10,7 @@
  * @date 06/01/14.01.2014 17:18
  */
 
-use Mindy\Helper\Creator;
-use Mindy\Query\Connection;
 use Mindy\Query\ConnectionManager;
-use Mindy\QueryBuilder\LegacyLookupBuilder;
 use Mindy\QueryBuilder\LookupBuilder\Legacy;
 use Mindy\QueryBuilder\QueryBuilder;
 

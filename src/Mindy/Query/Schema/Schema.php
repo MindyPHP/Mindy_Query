@@ -107,7 +107,7 @@ abstract class Schema
     {
         if (strpos($name, '{{') !== false) {
             $name = preg_replace('/\\{\\{(.*?)\\}\\}/', '\1', $name);
-            return str_replace('%', $this->getConnection()->getTablePrefix(), $name);
+            return str_replace('%', $this->getConnection()->tablePrefix, $name);
         } else {
             return $name;
         }

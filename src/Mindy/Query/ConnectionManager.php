@@ -35,24 +35,24 @@ class ConnectionManager
     }
 
     /**
-     * @param null $db
+     * @param null|string $name
      * @return Connection
      * @throws Exception
      */
-    public function getConnection($db = null)
+    public function getConnection($name = null)
     {
-        if ($db instanceof Connection) {
-            return $db;
+        if ($name instanceof Connection) {
+            return $name;
         }
 
-        if (empty($db)) {
-            $db = self::DEFAULT_CONNECTION_NAME;
+        if (empty($name)) {
+            $name = self::DEFAULT_CONNECTION_NAME;
         }
 
-        if ($this->hasConnection($db)) {
-            return $this->_connections[$db];
+        if ($this->hasConnection($name)) {
+            return $this->_connections[$name];
         } else {
-            throw new Exception('Unknown connection');
+            throw new Exception('Unknown connection: ' . $name);
         }
     }
 

@@ -581,7 +581,7 @@ class Connection implements LoggerAwareInterface
     {
         return new Command([
             'db' => $this,
-            'sql' => $sql,
+            'sql' => $sql instanceof QueryBuilder ? $sql->toSQL() : $sql,
         ]);
     }
 
