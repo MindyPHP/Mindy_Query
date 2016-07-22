@@ -10,12 +10,9 @@
  * @date 06/01/14.01.2014 17:18
  */
 
-<<<<<<< HEAD:test/DatabaseTestCase.php
 namespace Mindy\Query\Tests;
 
 use Exception;
-=======
->>>>>>> 72ba2b453401ca585cc881fced1b7c279e04ba8a:Tests/DatabaseTestCase.php
 use Mindy\Query\ConnectionManager;
 use Mindy\QueryBuilder\LookupBuilder\Legacy;
 use Mindy\QueryBuilder\QueryBuilder;
