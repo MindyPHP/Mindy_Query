@@ -11,5 +11,5 @@ vendor
 .idea
 .phpcomplete_extended
 
-Tests/tmp/*
-Tests/config_local.php
+test/tmp/*
+test/config_local.php
