@@ -402,12 +402,8 @@ class Connection implements LoggerAwareInterface
             }
         }
         if ($duration === 0 || $duration > 0) {
-            if (is_string($this->queryCache) && class_exists('\Mindy\Base\Mindy')) {
-                if (\Mindy\Base\Mindy::app()) {
-                    $cache = \Mindy\Base\Mindy::app()->getComponent($this->queryCache, false);
-                } else {
-                    $cache = $this->queryCache;
-                }
+            if (is_string($this->queryCache) && class_exists('\Mindy\Base\Mindy') && \Mindy\Base\Mindy::app()) {
+                $cache = \Mindy\Base\Mindy::app()->getComponent($this->queryCache, false);
             } else {
                 $cache = $this->queryCache;
             }
@@ -580,7 +576,7 @@ class Connection implements LoggerAwareInterface
     {
         return new Command([
             'db' => $this,
-            'sql' => $sql,
+            'sql' => $sql instanceof QueryBuilder ? $sql->toSQL() : $sql,
         ]);
     }
 

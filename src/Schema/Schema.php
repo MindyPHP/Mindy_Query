@@ -128,7 +128,7 @@ abstract class Schema
         $realName = $this->getRawTableName($name);
         if ($connection->enableSchemaCache && !in_array($name, $connection->schemaCacheExclude, true)) {
             /* @var $cache Cache */
-            if (is_string($connection->schemaCache) && class_exists('\Mindy\Base\Mindy')) {
+            if (is_string($connection->schemaCache) && class_exists('\Mindy\Base\Mindy') && \Mindy\Base\Mindy::app()) {
                 $cache = \Mindy\Base\Mindy::app()->getComponent($connection->schemaCache, false);
             } else {
                 $cache = $connection->schemaCache;
@@ -246,7 +246,7 @@ abstract class Schema
     public function refresh()
     {
         /* @var $cache Cache */
-        if (is_string($this->db->schemaCache) && class_exists('\Mindy\Base\Mindy')) {
+        if (is_string($this->db->schemaCache) && class_exists('\Mindy\Base\Mindy') && \Mindy\Base\Mindy::app()) {
             $cache = \Mindy\Base\Mindy::app()->getComponent($this->db->schemaCache, false);
         } else {
             $cache = $this->db->schemaCache;

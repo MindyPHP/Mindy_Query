@@ -1,28 +1,12 @@
 language: php
 
 php:
-  - 5.4
-  - 5.5
   - 5.6
+  - 7.0
   - hhvm
 
 before_script:
-  - composer self-update
-  - composer install
-  - composer install --dev --no-interaction
   - mysql -e 'CREATE DATABASE test;';
   - psql -U postgres -c 'CREATE DATABASE test;';
 
-install:
-  - Tests/travis/cubrid-setup.sh
-
-script:
-  - mkdir -p build/logs
-  - phpunit --coverage-clover build/logs/clover.xml
-
-after_script:
-  - php vendor/bin/coveralls -v
-
-matrix:
-  allow_failures:
-    - php: hhvm
+install: composer install

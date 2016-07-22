@@ -35,7 +35,7 @@ class ConnectionManager
     }
 
     /**
-     * @param null $db
+     * @param null|string $name
      * @return Connection
      * @throws Exception
      */
@@ -52,7 +52,7 @@ class ConnectionManager
         if ($this->hasDb($db)) {
             return $this->_databases[$db];
         } else {
-            throw new Exception('Unknown connection');
+            throw new Exception('Unknown connection: ' . $db);
         }
     }
 
