@@ -217,10 +217,13 @@ class Command
      * Executes the SQL statement.
      * This method should only be used for executing non-query SQL statement, such as `INSERT`, `DELETE`, `UPDATE` SQLs.
      * No result set will be returned.
-     * @return integer number of rows affected by the execution.
+     * @param bool $returnStatement
+     * @return int number of rows affected by the execution.
      * @throws Exception execution failed
+     * @throws \Exception
+     * @throws \Mindy\Exception\NotSupportedException
      */
-    public function execute()
+    public function execute($returnStatement = false)
     {
         $sql = $this->getSql();
         $this->getLogger()->debug($sql, ['method' => __METHOD__]);
@@ -231,8 +234,10 @@ class Command
         $token = $sql;
         try {
             $this->getLogger()->beginProfile($token, __METHOD__);
-            $this->pdoStatement->execute();
-            $n = $this->pdoStatement->rowCount();
+            $n = $this->pdoStatement->execute();
+            if ($returnStatement === false) {
+                $n = $this->pdoStatement->rowCount();
+            }
             $this->getLogger()->endProfile($token, __METHOD__);
             return $n;
         } catch (\Exception $e) {

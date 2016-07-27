@@ -17,6 +17,8 @@ class ConnectionManager
      */
     private $_databases = [];
 
+    private $_defaultName = self::DEFAULT_CONNECTION_NAME;
+
     /**
      * ConnectionManager constructor.
      * @param array $options
@@ -34,8 +36,14 @@ class ConnectionManager
         }
     }
 
+    public function setDefaultDb($name)
+    {
+        $this->_defaultName = $name;
+        return $this;
+    }
+
     /**
-     * @param null|string $name
+     * @param null $db
      * @return Connection
      * @throws Exception
      */
@@ -46,7 +54,7 @@ class ConnectionManager
         }
 
         if (empty($db)) {
-            $db = self::DEFAULT_CONNECTION_NAME;
+            $db = $this->_defaultName;
         }
 
         if ($this->hasDb($db)) {

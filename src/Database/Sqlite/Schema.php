@@ -131,7 +131,7 @@ class Schema extends \Mindy\Query\Schema\Schema
      */
     protected function findColumns($table)
     {
-        $sql = "PRAGMA table_info(" . $this->quoteSimpleTableName($table->name) . ')';
+        $sql = 'PRAGMA table_info(' . $this->quoteSimpleTableName($table->name) . ')';
         $columns = $this->getDb()->createCommand($sql)->queryAll();
         if (empty($columns)) {
             return false;

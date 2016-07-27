@@ -291,6 +291,20 @@ class Connection implements LoggerAwareInterface
      * @var \Psr\Log\LoggerInterface
      */
     private $_logger;
+    /**
+     * @var int
+     */
+    private static $_id = 0;
+
+    public function init()
+    {
+        self::$_id++;
+    }
+
+    public function getId()
+    {
+        return self::$_id;
+    }
 
     /**
      * Returns a value indicating whether the DB connection is established.
@@ -551,11 +565,6 @@ class Connection implements LoggerAwareInterface
         $this->getEventManager()->send($this, $eventType);
     }
 
-    protected function getLookupFetchCallback()
-    {
-        return null;
-    }
-
     protected function getLookupBuilder()
     {
         return new Legacy();
@@ -563,7 +572,11 @@ class Connection implements LoggerAwareInterface
 
     public function getQueryBuilder()
     {
-        return new QueryBuilder($this->getAdapter(), $this->getLookupBuilder(), $this->getLookupFetchCallback());
+        $adapter = $this->getAdapter();
+        $adapter->setDriver($this->getPdo());
+        $lookupBuilder = $this->getLookupBuilder();
+        $lookupBuilder->addLookupCollection($adapter->getLookupCollection());
+        return new QueryBuilder($adapter, $lookupBuilder);
     }
 
     /**
@@ -656,7 +669,7 @@ class Connection implements LoggerAwareInterface
      * Obtains the schema information for the named table.
      * @param string $name table name.
      * @param boolean $refresh whether to reload the table schema even if it is found in the cache.
-     * @return TableSchema table schema information. Null if the named table does not exist.
+     * @return \Mindy\Query\Schema\TableSchema table schema information. Null if the named table does not exist.
      */
     public function getTableSchema($name, $refresh = false)
     {
@@ -672,6 +685,14 @@ class Connection implements LoggerAwareInterface
     public function getLastInsertID($sequenceName = '')
     {
         return $this->getSchema()->getLastInsertID($sequenceName);
+    }
+
+    /**
+     * @return string
+     */
+    public function getTablePrefix()
+    {
+        return $this->tablePrefix;
     }
 
     /**

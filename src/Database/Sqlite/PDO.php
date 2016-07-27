@@ -15,7 +15,7 @@ class PDO extends \Mindy\Query\PDO
         parent::__construct($dsn, $username, $passwd, $options);
 
         $regexCreated = $this->sqliteCreateFunction('regexp', function ($pattern, $value) {
-            return preg_match($pattern, $value);
+            return (bool)preg_match($pattern, $value);
         }, 2);
 
         if ($regexCreated === false) {
