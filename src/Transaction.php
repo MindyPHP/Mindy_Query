@@ -72,7 +72,7 @@ class Transaction
             if (class_exists('\Mindy\Base\Mindy') && \Mindy\Base\Mindy::app()) {
                 $logger = \Mindy\Base\Mindy::app()->logger;
             } else {
-                $logger = new DummyLogger();
+                $logger = new DummyObject;
             }
         }
         return $logger;

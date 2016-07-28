@@ -533,7 +533,7 @@ class Connection implements LoggerAwareInterface
             if (class_exists('\Mindy\Base\Mindy') && \Mindy\Base\Mindy::app()) {
                 $this->_logger = \Mindy\Base\Mindy::app()->logger;
             } else {
-                $this->_logger = new DummyLogger;
+                $this->_logger = new DummyObject;
             }
         }
         return $this->_logger;
@@ -546,13 +546,7 @@ class Connection implements LoggerAwareInterface
         } else {
             static $signal;
             if ($signal === null) {
-                $signal = new class
-                {
-                    public function __call($name, $arguments)
-                    {
-                        return null;
-                    }
-                };
+                $signal = new DummyObject;
             }
             return $signal;
         }

@@ -343,7 +343,7 @@ class Command
             if (class_exists('\Mindy\Base\Mindy') && \Mindy\Base\Mindy::app()) {
                 $this->_logger = \Mindy\Base\Mindy::app()->logger;
             } else {
-                $this->_logger = new DummyLogger;
+                $this->_logger = new DummyObject;
             }
         }
         return $this->_logger;
