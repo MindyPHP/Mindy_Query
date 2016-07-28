@@ -2,8 +2,6 @@
 
 namespace Mindy\Query;
 
-use PDO;
-
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 
