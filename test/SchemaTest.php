@@ -94,10 +94,10 @@ abstract class SchemaTest extends DatabaseTestCase
 
     public function testGetColumnType()
     {
-        $qb = $this->getQueryBuilder();
+        $schema = $this->cm->getDb()->getSchema();
         foreach ($this->columnTypes() as $item) {
             list ($column, $expected) = $item;
-            $this->assertEquals($expected, $qb->getSchema()->getColumnType($column));
+            $this->assertEquals($expected, $schema->getColumnType($column));
         }
     }
 
