@@ -29,6 +29,9 @@ abstract class CommandTest extends DatabaseTestCase
         $this->assertEquals(null, $command->pdoStatement);
     }
 
+    /**
+     * @expectedException \Mindy\Query\Exception\Exception
+     */
     public function testExecute()
     {
         $db = $this->getDb();
@@ -41,9 +44,7 @@ abstract class CommandTest extends DatabaseTestCase
         $command = $db->createCommand($sql);
         $this->assertEquals(1, $command->queryScalar());
 
-        $command = $db->createCommand('bad SQL');
-        $this->expectException(\Mindy\Query\Exception\Exception::class);
-        $command->execute();
+        $db->createCommand('bad SQL')->execute();
     }
 
     public function testQueryAll()
