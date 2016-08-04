@@ -3,6 +3,7 @@
 namespace Mindy\Query\Tests;
 
 use Mindy\Query\DataReader;
+use PDO;
 
 /**
  * @group db

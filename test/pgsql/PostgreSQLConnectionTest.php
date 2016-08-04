@@ -36,12 +36,4 @@ class PostgreSQLConnectionTest extends ConnectionTest
         $transaction->setIsolationLevel(Transaction::SERIALIZABLE . ' READ ONLY DEFERRABLE');
         $transaction->commit();
     }
-
-    /**
-     * @return array
-     */
-    public function getConfig()
-    {
-        return require(__DIR__ . '/config.php');
-    }
 }

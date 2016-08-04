@@ -16,6 +16,7 @@ use Exception;
 use Mindy\Query\ConnectionManager;
 use Mindy\QueryBuilder\LookupBuilder\Legacy;
 use Mindy\QueryBuilder\QueryBuilder;
+use ReflectionClass;
 
 abstract class DatabaseTestCase extends \PHPUnit_Framework_TestCase
 {
@@ -33,7 +34,16 @@ abstract class DatabaseTestCase extends \PHPUnit_Framework_TestCase
     /**
      * @return array
      */
-    abstract public function getConfig();
+    /**
+     * @return array
+     */
+    public function getConfig()
+    {
+        $reflector = new ReflectionClass(get_class($this));
+        $dir = dirname($reflector->getFileName());
+        $configFile = @getenv('TRAVIS') ? 'config_travis.php' : 'config.php';
+        return require($dir . '/' . $configFile);
+    }
 
     public function setUp()
     {
