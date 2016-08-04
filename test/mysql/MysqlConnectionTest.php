@@ -14,12 +14,4 @@ class MysqlConnectionTest extends ConnectionTest
     {
         $this->getDb(true);
     }
-
-    /**
-     * @return array
-     */
-    public function getConfig()
-    {
-        return require(__DIR__ . '/config.php');
-    }
 }

@@ -30,12 +30,4 @@ class SqliteConnectionTest extends ConnectionTest
         $transaction = $connection->beginTransaction(Transaction::SERIALIZABLE);
         $transaction->rollBack();
     }
-
-    /**
-     * @return array
-     */
-    public function getConfig()
-    {
-        return require(__DIR__ . '/config.php');
-    }
 }

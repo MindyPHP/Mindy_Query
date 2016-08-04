@@ -15,12 +15,4 @@ class SqliteCommandTest extends CommandTest
     {
         return new Adapter();
     }
-
-    /**
-     * @return array
-     */
-    public function getConfig()
-    {
-        return require(__DIR__ . '/config.php');
-    }
 }
