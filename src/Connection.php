@@ -579,10 +579,11 @@ class Connection implements LoggerAwareInterface
      */
     public function createCommand($sql = null, $params = [])
     {
-        return new Command([
+        $command = new Command([
             'db' => $this,
             'sql' => $sql instanceof QueryBuilder ? $sql->toSQL() : $sql,
         ]);
+        return $command->bindValues($params);
     }
 
     /**

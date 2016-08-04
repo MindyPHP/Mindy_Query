@@ -82,6 +82,10 @@ class Command
      */
     protected $sql;
     /**
+     * @var array pending parameters to be bound to the current PDO statement.
+     */
+    private $_pendingParams = [];
+    /**
      * @var \Psr\Log\LoggerInterface
      */
     private $_logger;
@@ -124,17 +128,81 @@ class Command
     public function prepare()
     {
         if ($this->pdoStatement) {
+            $this->bindPendingParams();
             return;
         }
         $sql = $this->getSql();
         $pdo = $this->db->getPdo();
         try {
             $this->pdoStatement = $pdo->prepare($sql);
+            $this->bindPendingParams();
         } catch (\Exception $e) {
             $message = $e->getMessage() . "\nFailed to prepare SQL: $sql";
             $errorInfo = $e instanceof \PDOException ? $e->errorInfo : null;
             throw new Exception($message, $errorInfo, (int) $e->getCode(), $e);
         }
+    }
+
+    /**
+     * Binds pending parameters that were registered via [[bindValue()]] and [[bindValues()]].
+     * Note that this method requires an active [[pdoStatement]].
+     */
+    protected function bindPendingParams()
+    {
+        foreach ($this->_pendingParams as $name => $value) {
+            $this->pdoStatement->bindValue($name, $value[0], $value[1]);
+        }
+        $this->_pendingParams = [];
+    }
+
+    /**
+     * Binds a value to a parameter.
+     * @param string|integer $name Parameter identifier. For a prepared statement
+     * using named placeholders, this will be a parameter name of
+     * the form `:name`. For a prepared statement using question mark
+     * placeholders, this will be the 1-indexed position of the parameter.
+     * @param mixed $value The value to bind to the parameter
+     * @param integer $dataType SQL data type of the parameter. If null, the type is determined by the PHP type of the value.
+     * @return static the current command being executed
+     * @see http://www.php.net/manual/en/function.PDOStatement-bindValue.php
+     */
+    public function bindValue($name, $value, $dataType = null)
+    {
+        if ($dataType === null) {
+            $dataType = $this->db->getSchema()->getPdoType($value);
+        }
+        $this->_pendingParams[$name] = [$value, $dataType];
+        $this->params[$name] = $value;
+        return $this;
+    }
+
+    /**
+     * Binds a list of values to the corresponding parameters.
+     * This is similar to [[bindValue()]] except that it binds multiple values at a time.
+     * Note that the SQL data type of each value is determined by its PHP type.
+     * @param array $values the values to be bound. This must be given in terms of an associative
+     * array with array keys being the parameter names, and array values the corresponding parameter values,
+     * e.g. `[':name' => 'John', ':age' => 25]`. By default, the PDO type of each value is determined
+     * by its PHP type. You may explicitly specify the PDO type by using an array: `[value, type]`,
+     * e.g. `[':name' => 'John', ':profile' => [$profile, \PDO::PARAM_LOB]]`.
+     * @return static the current command being executed
+     */
+    public function bindValues($values)
+    {
+        if (empty($values)) {
+            return $this;
+        }
+        foreach ($values as $name => $value) {
+            if (is_array($value)) {
+                $this->_pendingParams[$name] = $value;
+                $this->params[$name] = $value[0];
+            } else {
+                $type = $this->db->getSchema()->getPdoType($value);
+                $this->_pendingParams[$name] = [$value, $type];
+                $this->params[$name] = $value;
+            }
+        }
+        return $this;
     }
 
     /**
@@ -352,6 +420,12 @@ class Command
     public function setSql($sql)
     {
         $this->sql = $sql;
+        if ($sql !== $this->sql) {
+            $this->cancel();
+            $this->sql = $sql;
+            $this->_pendingParams = [];
+            $this->params = [];
+        }
         return $this;
     }
 
