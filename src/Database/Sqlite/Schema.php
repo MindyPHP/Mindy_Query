@@ -190,7 +190,7 @@ class Schema extends \Mindy\Query\Schema\Schema
         $uniqueIndexes = [];
         foreach ($indexes as $index) {
             $indexName = $index['name'];
-            $indexInfo = $this->getDb()->createCommand("PRAGMA index_info(" . $this->quoteValue($index['name']) . ")")->queryAll();
+            $indexInfo = $this->getDb()->createCommand("PRAGMA index_info(" . $this->getAdapter()->quoteValue($index['name']) . ")")->queryAll();
             if ($index['unique']) {
                 $uniqueIndexes[$indexName] = [];
                 foreach ($indexInfo as $row) {
