@@ -13,12 +13,7 @@
     }
   },
   "require": {
-    "php": ">=5.6",
-    "mindy/helper": "*",
-    "mindy/exception": "*",
-    "mindy/cache": "*",
-    "mindy/logger": "*",
-    "mindy/event": "*",
+    "php": ">=7.0",
     "mindy/query_builder": "1.*"
   },
   "require-dev": {
