@@ -442,12 +442,12 @@ class Connection implements LoggerAwareInterface
         $token = 'Opening DB connection: ' . $this->dsn;
         try {
             $this->getLogger()->debug($token, ['method' => __METHOD__]);
-            $this->getLogger()->beginProfile($token, __METHOD__);
+            $this->getLogger()->debug('beginProfile: ' . $token, ['method' => __METHOD__]);
             $this->pdo = $this->createPdoInstance();
             $this->initConnection();
-            $this->getLogger()->endProfile($token, __METHOD__);
+            $this->getLogger()->debug('endProfile: ' . $token, ['method' => __METHOD__]);
         } catch (\PDOException $e) {
-            $this->getLogger()->endProfile($token, __METHOD__);
+            $this->getLogger()->debug('endProfile: ' . $token, ['method' => __METHOD__]);
             throw new Exception($e->getMessage(), $e->errorInfo, (int)$e->getCode(), $e);
         }
     }

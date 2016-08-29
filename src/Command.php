@@ -301,15 +301,15 @@ class Command
         $this->prepare();
         $token = $sql;
         try {
-            $this->getLogger()->beginProfile($token, __METHOD__);
+            $this->getLogger()->debug('beginProfile: ' . $token, ['method' => __METHOD__]);
             $n = $this->pdoStatement->execute();
             if ($returnStatement === false) {
                 $n = $this->pdoStatement->rowCount();
             }
-            $this->getLogger()->endProfile($token, __METHOD__);
+            $this->getLogger()->debug('endProfile: ' . $token, ['method' => __METHOD__]);
             return $n;
         } catch (\Exception $e) {
-            $this->getLogger()->endProfile($token, __METHOD__);
+            $this->getLogger()->debug('endProfile: ' . $token, ['method' => __METHOD__]);
             throw $this->db->getSchema()->convertException($e, $sql);
         }
     }
@@ -379,7 +379,7 @@ class Command
         $this->prepare();
         $token = $sql;
         try {
-            $this->getLogger()->beginProfile($token, __METHOD__);
+            $this->getLogger()->debug('beginProfile: ' . $token, ['method' => __METHOD__]);
             $this->pdoStatement->execute();
             if ($method === '') {
                 $result = new DataReader($this);
@@ -390,9 +390,9 @@ class Command
                 $result = call_user_func_array([$this->pdoStatement, $method], (array) $fetchMode);
                 $this->pdoStatement->closeCursor();
             }
-            $this->getLogger()->endProfile($token, __METHOD__);
+            $this->getLogger()->debug('endProfile: ' . $token, ['method' => __METHOD__]);
         } catch (\Exception $e) {
-            $this->getLogger()->endProfile($token, __METHOD__);
+            $this->getLogger()->debug('endProfile: ' . $token, ['method' => __METHOD__]);
             throw $this->db->getSchema()->convertException($e, $sql);
         }
         if (isset($cache, $cacheKey, $info)) {
